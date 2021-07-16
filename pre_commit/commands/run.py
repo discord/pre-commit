@@ -157,12 +157,14 @@ def _run_single_hook(
         retcode = 0
         diff_after = diff_before
         files_modified = False
+        hook_failed = False
         out = b''
     elif not filenames and not hook.always_run:
         duration = None
         retcode = 0
         diff_after = diff_before
         files_modified = False
+        hook_failed = False
         out = b''
     else:
         # print hook and dots first in case the hook takes a while to run
@@ -178,12 +180,16 @@ def _run_single_hook(
             duration = round(time.time() - time_before, 2) or 0
             diff_after = _get_diff()
 
-            # if the hook makes changes, fail the commit
+            # if the hook makes changes, fail the commit or add the changes automatically
             files_modified = diff_before != diff_after
-            trace.set_success(not (retcode or files_modified))
+            hook_failed = bool(retcode) or (files_modified and not hook.commit_changes)
+            trace.set_success(not hook_failed)
 
+        if files_modified and hook.commit_changes:
+            git.update_changes()
+            diff_after = b''
 
-        if retcode or files_modified:
+        if hook_failed:
             print_color = color.RED
             status = 'Failed'
         else:
@@ -210,7 +216,7 @@ def _run_single_hook(
             output.write_line_b(out.strip(), logfile_name=hook.log_file)
             output.write_line()
 
-    return files_modified or bool(retcode), diff_after
+    return hook_failed, diff_after
 
 
 def _compute_cols(hooks: Sequence[Hook]) -> int:
