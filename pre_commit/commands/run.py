@@ -131,7 +131,6 @@ def _get_skips(environ: MutableMapping[str, str]) -> set[str]:
     return {skip.strip() for skip in skips.split(',') if skip.strip()}
 
 
-SKIPPED = 'Skipped'
 NO_FILES = '(no files to check)'
 
 
@@ -151,31 +150,12 @@ def _run_single_hook(
     filenames = tuple(classifier.filenames_for_hook(hook))
 
     if hook.id in skips or hook.alias in skips:
-        output.write(
-            _full_msg(
-                start=hook.name,
-                end_msg=SKIPPED,
-                end_color=color.YELLOW,
-                use_color=use_color,
-                cols=cols,
-            ),
-        )
         duration = None
         retcode = 0
         diff_after = diff_before
         files_modified = False
         out = b''
     elif not filenames and not hook.always_run:
-        output.write(
-            _full_msg(
-                start=hook.name,
-                postfix=NO_FILES,
-                end_msg=SKIPPED,
-                end_color=color.TURQUOISE,
-                use_color=use_color,
-                cols=cols,
-            ),
-        )
         duration = None
         retcode = 0
         diff_after = diff_before
@@ -237,16 +217,17 @@ def _run_single_hook(
 
 def _compute_cols(hooks: Sequence[Hook]) -> int:
     """Compute the number of columns to display hook messages.  The widest
-    that will be displayed is in the no files skipped case:
+    that will be displayed is in the no files case:
 
-        Hook name...(no files to check) Skipped
+        Hook name...(no files to check) Passed
     """
     if hooks:
         name_len = max(_len_cjk(hook.name) for hook in hooks)
     else:
         name_len = 0
 
-    cols = name_len + 3 + len(NO_FILES) + 1 + len(SKIPPED)
+    max_status_size = 6  # Passed or Failed
+    cols = name_len + 3 + len(NO_FILES) + 1 + max_status_size
     return max(cols, 80)
 
 
