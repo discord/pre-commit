@@ -23,7 +23,7 @@ class MetricRecord:
         }
 
 
-class TraceSuccess:
+class Trace:
     def __init__(self) -> None:
         self.successful = True
 
@@ -37,23 +37,21 @@ class Monitor:
         self.records: List[MetricRecord] = []
         self.report_command: Optional[List[str]] = None
 
-    def add_record(self, name: str, successful: bool, start_time: datetime, end_time: datetime) -> None:
-        self.records.append(MetricRecord(name=name, successful=successful, start_time=start_time, end_time=end_time))
-    
     @contextmanager
-    def trace(self, name: str) -> Generator[TraceSuccess, None, None]:
+    def trace(self, name: str) -> Generator[Trace, None, None]:
         """Record and trace the execution time and result of the wrapped sequence
         """
-        start_time = datetime.utcnow().replace(tzinfo=timezone.utc)
-        success = TraceSuccess()
+        start_time = datetime.now(timezone.utc)
+        trace = Trace()
 
         try:
-            yield success
+            yield trace
         except:
-            success.set_success(False)
+            trace.set_success(False)
             raise
         finally:
-            self.add_record(name, success.successful, start_time, end_time=datetime.utcnow().replace(tzinfo=timezone.utc))
+            end_time = datetime.now(timezone.utc)
+            self.records.append(MetricRecord(name=name, successful=trace.successful, start_time=start_time, end_time=end_time))
 
     def set_report_command(self, command: str) -> None:
         self.report_command = shlex.split(command)

@@ -315,7 +315,7 @@ def _run_inner(
         config_file: str,
         store: Store,
         args: argparse.Namespace,
-        environ: MutableMapping[str, str] = os.environ,
+        environ: MutableMapping[str, str],
 ) -> int:
     stash = not args.all_files and not args.files
 
@@ -403,10 +403,15 @@ def _run_inner(
     # https://github.com/python/mypy/issues/7726
     raise AssertionError('unreachable')
 
-def run(*args: Any) -> int:
+def run(
+        config_file: str,
+        store: Store,
+        args: argparse.Namespace,
+        environ: MutableMapping[str, str] = os.environ,
+) -> int:
     try:
         with monitor.trace('precommit') as trace:
-            retval = _run_inner(*args)
+            retval = _run_inner(config_file, store, args, environ)
             trace.set_success(retval == 0)
         return retval
     finally:
