@@ -182,10 +182,13 @@ def _run_single_hook(
 
             # if the hook makes changes, fail the commit or add the changes automatically
             files_modified = diff_before != diff_after
-            hook_failed = bool(retcode) or (files_modified and not hook.commit_changes)
+            # We can't easily commit changes if another hook has made uncomitted modifications.
+            # In that case, just fail the hook instead.
+            can_commit_changes = hook.commit_changes and not diff_before
+            hook_failed = bool(retcode) or (files_modified and not can_commit_changes)
             trace.set_success(not hook_failed)
 
-        if files_modified and hook.commit_changes:
+        if files_modified and can_commit_changes:
             git.update_changes()
             diff_after = b''
 
