@@ -29,6 +29,7 @@ from pre_commit.repository import install_hook_envs
 from pre_commit.staged_files_only import staged_files_only
 from pre_commit.store import Store
 from pre_commit.util import cmd_output_b
+from pre_commit.metrics import monitor
 
 
 logger = logging.getLogger('pre_commit')
@@ -171,12 +172,16 @@ def _run_single_hook(
             filenames = ()
         time_before = time.time()
         language = languages[hook.language]
-        retcode, out = language.run_hook(hook, filenames, use_color)
-        duration = round(time.time() - time_before, 2) or 0
-        diff_after = _get_diff()
+        with monitor.trace(f'precommit.hook.{hook.name}') as trace:
+            retcode, out = language.run_hook(hook, filenames, use_color)
 
-        # if the hook makes changes, fail the commit
-        files_modified = diff_before != diff_after
+            duration = round(time.time() - time_before, 2) or 0
+            diff_after = _get_diff()
+
+            # if the hook makes changes, fail the commit
+            files_modified = diff_before != diff_after
+            trace.set_success(not (retcode or files_modified))
+
 
         if retcode or files_modified:
             print_color = color.RED
@@ -306,7 +311,7 @@ def _has_unstaged_config(config_file: str) -> bool:
     return retcode == 1
 
 
-def run(
+def _run_inner(
         config_file: str,
         store: Store,
         args: argparse.Namespace,
@@ -375,6 +380,7 @@ def run(
             exit_stack.enter_context(staged_files_only(store.directory))
 
         config = load_config(config_file)
+        monitor.set_report_command(config['metrics_command'])
         hooks = [
             hook
             for hook in all_hooks(config, store)
@@ -396,3 +402,12 @@ def run(
 
     # https://github.com/python/mypy/issues/7726
     raise AssertionError('unreachable')
+
+def run(*args: Any) -> int:
+    try:
+        with monitor.trace('precommit') as trace:
+            retval = _run_inner(*args)
+            trace.set_success(retval == 0)
+        return retval
+    finally:
+        monitor.report_metrics()
