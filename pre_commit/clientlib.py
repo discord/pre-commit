@@ -323,6 +323,7 @@ CONFIG_SCHEMA = cfgv.Map(
     cfgv.Optional('files', check_string_regex, ''),
     cfgv.Optional('exclude', check_string_regex, '^$'),
     cfgv.Optional('fail_fast', cfgv.check_bool, False),
+    cfgv.Optional('metrics_command', cfgv.check_string, None),
     cfgv.Optional(
         'minimum_pre_commit_version',
         cfgv.check_and(cfgv.check_string, check_min_version),
@@ -336,6 +337,7 @@ CONFIG_SCHEMA = cfgv.Map(
             'files',
             'exclude',
             'fail_fast',
+            'metrics_command',
             'minimum_pre_commit_version',
             'ci',
         ),
