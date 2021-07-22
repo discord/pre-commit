@@ -74,7 +74,7 @@ def _unstaged_changes_cleared(patch_dir: str) -> Generator[None, None, None]:
                 # We failed to apply the patch, presumably due to fixes made
                 # by hooks.
                 # Roll back the changes made by hooks.
-                cmd_output_b('git', 'checkout', '--', '.', env=no_checkout_env)
+                cmd_output_b('git', 'restore', '--source', tree, '--worktree', '.', env=no_checkout_env)
                 _git_apply(patch_filename)
 
             logger.info(f'Restored changes from {patch_filename}.')
