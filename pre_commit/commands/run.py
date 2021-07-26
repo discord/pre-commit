@@ -190,7 +190,9 @@ def _run_single_hook(
 
         if files_modified and can_commit_changes:
             git.update_changes()
-            diff_after = b''
+            # All changes should now be added -- there should no longer be any diff.
+            diff_after = _get_diff()
+            assert not diff_after
 
         if hook_failed:
             print_color = color.RED
