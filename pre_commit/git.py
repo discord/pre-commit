@@ -1,5 +1,7 @@
+from build.lib.pre_commit.git import update_changes
 import logging
 import os.path
+import time
 import sys
 from typing import Dict
 from typing import List
@@ -195,6 +197,24 @@ def commit(repo: str = '.') -> None:
     env['GIT_AUTHOR_EMAIL'] = env['GIT_COMMITTER_EMAIL'] = email
     cmd = ('git', 'commit', '--no-edit', '--no-gpg-sign', '-n', '-minit')
     cmd_output_b(*cmd, cwd=repo, env=env)
+
+
+def update_changes_concurrent(repo: str = '.') -> None:
+    # If sometime else is happening in the git repository (e.g. an editor calling git status) this
+    # command might fail. Retry a few times to see if it will succeed.
+    MAX_TRIES = 3
+    for i in range(MAX_TRIES):
+        try:
+            update_changes(repo)
+            return
+        except CalledProcessError as e:
+            if i + 1 < MAX_TRIES and e.returncode == 128 and e.stderr and b'.git/index.lock' in e.stderr:
+                time.sleep(0.5)
+                continue
+            else:
+                raise
+
+
 
 
 def update_changes(repo: str = '.') -> None:

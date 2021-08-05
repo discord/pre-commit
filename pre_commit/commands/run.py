@@ -1,3 +1,5 @@
+import concurrent.futures
+import shlex
 import argparse
 import contextlib
 import functools
@@ -7,6 +9,7 @@ import re
 import subprocess
 import time
 import unicodedata
+from pathlib import Path
 from typing import Any
 from typing import Collection
 from typing import Dict
@@ -31,6 +34,10 @@ from pre_commit.store import Store
 from pre_commit.util import cmd_output_b
 from pre_commit.metrics import monitor
 
+
+# Keeping the file name the same as git's makes it more likely that editors will set the file type
+# correctly when opening it.
+COMMIT_MESSAGE_DRAFT_PATH = Path('.git/pre-commit/COMMIT_EDITMSG')
 
 logger = logging.getLogger('pre_commit')
 
@@ -190,7 +197,7 @@ def _run_single_hook(
             trace.set_success(not hook_failed)
 
         if files_modified and can_commit_changes:
-            git.update_changes()
+            git.update_changes_concurrent()
             # All changes should now be added -- there should no longer be any diff.
             diff_after = _get_diff()
             assert not diff_after
@@ -417,10 +424,68 @@ def run(
         to_install = [hook for hook in hooks if hook.id not in skips]
         install_hook_envs(to_install, store)
 
-        retval = _run_hooks(config, hooks, skips, args, environ)
+        if args.hook_stage == 'commit' and not is_git_message_supplied():
+            # Allow user to enter commit message concurrently with running pre-commit hooks to lower
+            # wait times.
+
+            # Run git commands before starting hooks to avoid race conditions and git lock errors.
+            commit_message_template = get_commit_message_template()
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
+                ex.submit(edit_commit_message, commit_message_template)
+                retval_future = ex.submit(_run_hooks, config, hooks, skips, args, environ)
+            retval = retval_future.result()
+        else:
+            retval = _run_hooks(config, hooks, skips, args, environ)
+
         trace.set_success(retval == 0)
         return retval
 
 
     # https://github.com/python/mypy/issues/7726
     raise AssertionError('unreachable')
+
+def get_global_git_editor() -> List[str]:
+    # The repo-local editor has been set to a special script. This gets the globally configured
+    # editor.
+    editor_str = subprocess.run(['git', 'var', 'GIT_EDITOR'], cwd='/', check=True, capture_output=True).stdout.decode('utf-8')
+    return shlex.split(editor_str)
+
+def get_commit_message_template() -> str:
+    initial_text = """\
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+#
+"""
+    status = subprocess.run(['git', 'status'], check=True, capture_output=True).stdout.decode('utf-8')
+    commented_status = "\n".join('# ' + line for line in status.splitlines())
+    return initial_text + commented_status
+
+
+def edit_commit_message(template: str) -> None:
+    if not COMMIT_MESSAGE_DRAFT_PATH.exists():
+        COMMIT_MESSAGE_DRAFT_PATH.parent.mkdir(parents=True, exist_ok=True)
+        COMMIT_MESSAGE_DRAFT_PATH.write_text(template)
+
+    git_editor = get_global_git_editor()  # Doesn't run in this repo, so the concurrency won't cause git lock errors.
+    with monitor.trace('precommit.editor'):
+        subprocess.call(git_editor + [str(COMMIT_MESSAGE_DRAFT_PATH)])
+
+
+def is_git_message_supplied() -> bool:
+    # TODO: this
+    import psutil
+    git_invocation = psutil.Process().parent().cmdline()
+    return '-m' in git_invocation
+
+
+def _run_auto_editor(commit_msg_filename: str) -> int:
+    if COMMIT_MESSAGE_DRAFT_PATH.exists():
+        commit_msg_path = Path(commit_msg_filename)
+        commit_msg_path.write_text(COMMIT_MESSAGE_DRAFT_PATH.read_text())
+        COMMIT_MESSAGE_DRAFT_PATH.unlink()
+        return 0
+    else:
+        git_editor = get_global_git_editor()  # Doesn't run in this repo, so the concurrency won't cause git lock errors.
+        return subprocess.call(git_editor + [commit_msg_filename])
+        
