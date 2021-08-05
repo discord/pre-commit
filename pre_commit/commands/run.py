@@ -149,6 +149,7 @@ def _run_single_hook(
         diff_before: bytes,
         verbose: bool,
         use_color: bool,
+        stage: str,
 ) -> Tuple[bool, bytes]:
     filenames = classifier.filenames_for_hook(hook)
 
@@ -174,7 +175,7 @@ def _run_single_hook(
             filenames = ()
         time_before = time.time()
         language = languages[hook.language]
-        with monitor.trace(f'precommit.hook.{hook.name}') as trace:
+        with monitor.trace(f'precommit.{stage}.hook.{hook.name}') as trace:
             retcode, out = language.run_hook(hook, filenames, use_color)
 
             duration = round(time.time() - time_before, 2) or 0
@@ -283,6 +284,7 @@ def _run_hooks(
         current_retval, prior_diff = _run_single_hook(
             classifier, hook, skips, cols, prior_diff,
             verbose=args.verbose, use_color=args.color,
+            stage=args.hook_stage,
         )
         retval |= current_retval
         if retval and config['fail_fast']:
@@ -322,11 +324,11 @@ def _has_unstaged_config(config_file: str) -> bool:
     return retcode == 1
 
 
-def _run_inner(
+def run(
         config_file: str,
         store: Store,
         args: argparse.Namespace,
-        environ: MutableMapping[str, str],
+        environ: MutableMapping[str, str] = os.environ,
 ) -> int:
     stash = not args.all_files and not args.files
 
@@ -387,6 +389,11 @@ def _run_inner(
     environ['PRE_COMMIT'] = '1'
 
     with contextlib.ExitStack() as exit_stack:
+        # Metrics should get reported as the last thing that happens.
+        exit_stack.callback(monitor.report_metrics)
+
+        # Start the timing trace.
+        trace = exit_stack.enter_context(monitor.trace(f'precommit.{args.hook_stage}'))
         if stash:
             exit_stack.enter_context(staged_files_only(store.directory))
 
@@ -403,27 +410,17 @@ def _run_inner(
             output.write_line(
                 f'No hook with id `{args.hook}` in stage `{args.hook_stage}`',
             )
+            trace.set_success(False)
             return 1
 
         skips = _get_skips(environ)
         to_install = [hook for hook in hooks if hook.id not in skips]
         install_hook_envs(to_install, store)
 
-        return _run_hooks(config, hooks, skips, args, environ)
+        retval = _run_hooks(config, hooks, skips, args, environ)
+        trace.set_success(retval == 0)
+        return retval
+
 
     # https://github.com/python/mypy/issues/7726
     raise AssertionError('unreachable')
-
-def run(
-        config_file: str,
-        store: Store,
-        args: argparse.Namespace,
-        environ: MutableMapping[str, str] = os.environ,
-) -> int:
-    try:
-        with monitor.trace('precommit') as trace:
-            retval = _run_inner(config_file, store, args, environ)
-            trace.set_success(retval == 0)
-        return retval
-    finally:
-        monitor.report_metrics()
