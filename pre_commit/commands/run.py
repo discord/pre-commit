@@ -39,6 +39,11 @@ from pre_commit.metrics import monitor
 # Keeping the file name the same as git's makes it more likely that editors will set the file type
 # correctly when opening it.
 COMMIT_MESSAGE_DRAFT_PATH = Path('.git/pre-commit/COMMIT_EDITMSG')
+COMMIT_MESSAGE_HEADER = """
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+#
+"""
 
 logger = logging.getLogger('pre_commit')
 
@@ -471,14 +476,9 @@ def _get_global_git_editor() -> List[str]:
     return shlex.split(editor_str)
 
 def _get_commit_message_template() -> str:
-    initial_text = """\
-# Please enter the commit message for your changes. Lines starting
-# with '#' will be ignored, and an empty message aborts the commit.
-#
-"""
     status = subprocess.run(['git', 'status'], check=True, capture_output=True).stdout.decode('utf-8')
     commented_status = "\n".join('# ' + line for line in status.splitlines())
-    return initial_text + commented_status
+    return COMMIT_MESSAGE_HEADER + commented_status
 
 
 def _edit_commit_message(template: str) -> None:
