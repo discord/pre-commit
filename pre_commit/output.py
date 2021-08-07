@@ -2,14 +2,18 @@ import contextlib
 from dataclasses import dataclass
 import io
 import sys
+from threading import Lock
 from typing import Any
 from typing import IO
 from typing import Optional
 from typing import Generator
 
+stdout_lock = Lock()
+
 def write_b(b: bytes, stream: Optional[IO[bytes]] = None) -> None:
     if stream is None:
-        stream = sys.stdout.buffer
+        with stdout_lock:
+            stream = sys.stdout.buffer
 
     stream.write(b)
     stream.flush()
@@ -23,7 +27,8 @@ def write_line_b(
         logfile_name: Optional[str] = None,
 ) -> None:
     if stream is None:
-        stream = sys.stdout.buffer
+        with stdout_lock:
+            stream = sys.stdout.buffer
 
     with contextlib.ExitStack() as exit_stack:
         output_streams = [stream]
@@ -47,4 +52,7 @@ def paused_stdout() -> Generator[None, None, None]:
         redirected_output = io.TextIOWrapper(io.BytesIO())
         with contextlib.redirect_stdout(redirected_output):
             yield
-        write_b(redirected_output.buffer.getvalue())
+            # We need to hold this lock through resetting stdout _and_ writing the saved contents.
+            stdout_lock.acquire()
+        write_b(redirected_output.buffer.getvalue(), sys.stdout.buffer)  # Supply buffer here so we don't deadlock.
+        stdout_lock.release()
