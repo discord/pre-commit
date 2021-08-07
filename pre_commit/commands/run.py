@@ -425,17 +425,17 @@ def run(
         to_install = [hook for hook in hooks if hook.id not in skips]
         install_hook_envs(to_install, store)
 
-        if args.hook_stage == 'commit' and not is_git_message_supplied():
+        if args.hook_stage == 'commit' and not _is_git_message_supplied():
             # Allow user to enter commit message concurrently with running pre-commit hooks to lower
             # wait times.
 
             # Run git commands before starting hooks to avoid race conditions and git lock errors.
-            commit_message_template = get_commit_message_template()
+            commit_message_template = _get_commit_message_template()
 
             with contextlib.ExitStack() as paused_stdout_stack:
                 paused_stdout_stack.enter_context(output.paused_stdout())
                 def launch_editor():
-                    edit_commit_message(commit_message_template)
+                    _edit_commit_message(commit_message_template)
                     paused_stdout_stack.close()  # Resume terminal output as soon as the editor closes
                 with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
                     ex.submit(launch_editor)
@@ -451,13 +451,13 @@ def run(
     # https://github.com/python/mypy/issues/7726
     raise AssertionError('unreachable')
 
-def get_global_git_editor() -> List[str]:
+def _get_global_git_editor() -> List[str]:
     # The repo-local editor has been set to a special script. This gets the globally configured
     # editor.
     editor_str = subprocess.run(['git', 'var', 'GIT_EDITOR'], cwd='/', check=True, capture_output=True).stdout.decode('utf-8')
     return shlex.split(editor_str)
 
-def get_commit_message_template() -> str:
+def _get_commit_message_template() -> str:
     initial_text = """\
 # Please enter the commit message for your changes. Lines starting
 # with '#' will be ignored, and an empty message aborts the commit.
@@ -468,17 +468,17 @@ def get_commit_message_template() -> str:
     return initial_text + commented_status
 
 
-def edit_commit_message(template: str) -> None:
+def _edit_commit_message(template: str) -> None:
     if not COMMIT_MESSAGE_DRAFT_PATH.exists():
         COMMIT_MESSAGE_DRAFT_PATH.parent.mkdir(parents=True, exist_ok=True)
         COMMIT_MESSAGE_DRAFT_PATH.write_text(template)
 
-    git_editor = get_global_git_editor()  # Doesn't run in this repo, so the concurrency won't cause git lock errors.
+    git_editor = _get_global_git_editor()  # Doesn't run in this repo, so the concurrency won't cause git lock errors.
     with monitor.trace('precommit.editor'):
         subprocess.call(git_editor + [str(COMMIT_MESSAGE_DRAFT_PATH)])
 
 
-def is_git_message_supplied() -> bool:
+def _is_git_message_supplied() -> bool:
     # TODO: this
     import psutil
     git_invocation = psutil.Process().parent().cmdline()
@@ -492,6 +492,6 @@ def _run_auto_editor(commit_msg_filename: str) -> int:
         COMMIT_MESSAGE_DRAFT_PATH.unlink()
         return 0
     else:
-        git_editor = get_global_git_editor()  # Doesn't run in this repo, so the concurrency won't cause git lock errors.
+        git_editor = _get_global_git_editor()  # Doesn't run in this repo, so the concurrency won't cause git lock errors.
         return subprocess.call(git_editor + [commit_msg_filename])
         
