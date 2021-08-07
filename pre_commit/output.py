@@ -1,20 +1,30 @@
 import contextlib
+from dataclasses import dataclass
+import io
 import sys
 from typing import Any
 from typing import IO
 from typing import Optional
+from typing import Generator
 
+def write_b(b: bytes, stream: Optional[IO[bytes]] = None) -> None:
+    if stream is None:
+        stream = sys.stdout.buffer
 
-def write(s: str, stream: IO[bytes] = sys.stdout.buffer) -> None:
-    stream.write(s.encode())
+    stream.write(b)
     stream.flush()
 
+def write(s: str, stream: Optional[IO[bytes]] = None) -> None:
+    write_b(s.encode(), stream)
 
 def write_line_b(
         s: Optional[bytes] = None,
-        stream: IO[bytes] = sys.stdout.buffer,
+        stream: Optional[IO[bytes]] = None,
         logfile_name: Optional[str] = None,
 ) -> None:
+    if stream is None:
+        stream = sys.stdout.buffer
+
     with contextlib.ExitStack() as exit_stack:
         output_streams = [stream]
         if logfile_name:
@@ -30,3 +40,11 @@ def write_line_b(
 
 def write_line(s: Optional[str] = None, **kwargs: Any) -> None:
     write_line_b(s.encode() if s is not None else s, **kwargs)
+
+
+@contextlib.contextmanager
+def paused_stdout() -> Generator[None, None, None]:
+        redirected_output = io.TextIOWrapper(io.BytesIO())
+        with contextlib.redirect_stdout(redirected_output):
+            yield
+        write_b(redirected_output.buffer.getvalue())

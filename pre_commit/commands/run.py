@@ -1,4 +1,5 @@
 import concurrent.futures
+import io
 import shlex
 import argparse
 import contextlib
@@ -431,9 +432,14 @@ def run(
             # Run git commands before starting hooks to avoid race conditions and git lock errors.
             commit_message_template = get_commit_message_template()
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
-                ex.submit(edit_commit_message, commit_message_template)
-                retval_future = ex.submit(_run_hooks, config, hooks, skips, args, environ)
+            with contextlib.ExitStack() as paused_stdout_stack:
+                paused_stdout_stack.enter_context(output.paused_stdout())
+                def launch_editor():
+                    edit_commit_message(commit_message_template)
+                    paused_stdout_stack.close()  # Resume terminal output as soon as the editor closes
+                with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
+                    ex.submit(launch_editor)
+                    retval_future = ex.submit(_run_hooks, config, hooks, skips, args, environ)
             retval = retval_future.result()
         else:
             retval = _run_hooks(config, hooks, skips, args, environ)
