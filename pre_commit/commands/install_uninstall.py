@@ -107,7 +107,7 @@ def _install_hook_script(
         if hook_type == 'editor':
             contents = resource_text('editor-tmpl')
             hook_file.write(contents)
-            subprocess.call(['git', 'config', '--local', 'core.editor', './.git/hooks/editor'])
+            subprocess.call(['git', 'config', '--local', 'core.editor', git.get_editor_script_path()])
         else:
             contents = resource_text('hook-tmpl')
             before, rest = contents.split(TEMPLATE_START)

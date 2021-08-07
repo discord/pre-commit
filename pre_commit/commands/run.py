@@ -425,7 +425,7 @@ def run(
         to_install = [hook for hook in hooks if hook.id not in skips]
         install_hook_envs(to_install, store)
 
-        if args.hook_stage == 'commit' and not _is_git_message_supplied():
+        if args.hook_stage == 'commit' and not _is_git_message_supplied() and _is_editor_script_configured():
             # Allow user to enter commit message concurrently with running pre-commit hooks to lower
             # wait times.
 
@@ -450,6 +450,19 @@ def run(
 
     # https://github.com/python/mypy/issues/7726
     raise AssertionError('unreachable')
+
+def _is_editor_script_configured() -> bool:
+    editor_script_path = git.get_editor_script_path()
+    local_git_editor = _get_local_git_editor()
+    return (bool(local_git_editor)
+            and local_git_editor[0] == editor_script_path
+            and os.path.exists(editor_script_path)
+           )
+
+
+def _get_local_git_editor() -> List[str]:
+    editor_str = subprocess.run(['git', 'var', 'GIT_EDITOR'], check=True, capture_output=True).stdout.decode('utf-8')
+    return shlex.split(editor_str)
 
 def _get_global_git_editor() -> List[str]:
     # The repo-local editor has been set to a special script. This gets the globally configured

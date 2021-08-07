@@ -215,6 +215,8 @@ def update_changes_concurrent(repo: str = '.') -> None:
                 raise
 
 
+def get_editor_script_path(repo: str = '.') -> str:
+    return os.path.join('.', get_git_dir(repo), 'hooks', 'editor')
 
 
 def update_changes(repo: str = '.') -> None:
