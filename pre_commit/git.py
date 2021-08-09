@@ -1,4 +1,3 @@
-from build.lib.pre_commit.git import update_changes
 import logging
 import os.path
 import time
