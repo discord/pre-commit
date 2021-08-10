@@ -107,7 +107,7 @@ def _install_hook_script(
                 # Local editor differently configured; do not overwrite user config.
                 logger.error(
                     'Refusing to overwrite local `core.editor` git config.\n'
-                    'hint: `git config --local --unset core.editor`'
+                    'hint: `git config --local --unset core.editor`',
                 )
         else:
             contents = resource_text('hook-tmpl')

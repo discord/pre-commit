@@ -1,10 +1,15 @@
-from contextlib import contextmanager
-from dataclasses import dataclass
-from datetime import datetime, timezone
+import json
 import shlex
 import subprocess
-from typing import List, Generator, Dict, Optional
-import json
+from contextlib import contextmanager
+from dataclasses import dataclass
+from datetime import datetime
+from datetime import timezone
+from typing import Dict
+from typing import Generator
+from typing import List
+from typing import Optional
+
 
 @dataclass
 class MetricRecord:
@@ -12,7 +17,6 @@ class MetricRecord:
     successful: bool
     start_time: datetime
     end_time: datetime
-
 
     def for_json(self) -> Dict[str, object]:
         return {
@@ -33,6 +37,7 @@ class Trace:
 
 class Monitor:
     """Metrics monitoring class indended to be used as a singleton."""
+
     def __init__(self) -> None:
         self.records: List[MetricRecord] = []
         self.report_command: Optional[List[str]] = None
@@ -46,12 +51,17 @@ class Monitor:
 
         try:
             yield trace
-        except:
+        except BaseException:
             trace.set_success(False)
             raise
         finally:
             end_time = datetime.now(timezone.utc)
-            self.records.append(MetricRecord(name=name, successful=trace.successful, start_time=start_time, end_time=end_time))
+            self.records.append(
+                MetricRecord(
+                    name=name, successful=trace.successful,
+                    start_time=start_time, end_time=end_time,
+                ),
+            )
 
     def set_report_command(self, command: Optional[str]) -> None:
         if command is not None:
@@ -63,5 +73,6 @@ class Monitor:
         if self.report_command:
             record_json = json.dumps([record.for_json() for record in self.records])
             subprocess.run(self.report_command + [record_json])
+
 
 monitor = Monitor()

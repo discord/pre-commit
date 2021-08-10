@@ -1,14 +1,22 @@
-import psutil
 import argparse
-import shlex
-import contextlib
 import concurrent.futures
+import contextlib
+import shlex
 import subprocess
 from pathlib import Path
-from typing import Any, Callable, List, NoReturn, TypeVar
+from typing import Any
+from typing import Callable
+from typing import List
+from typing import TYPE_CHECKING
+from typing import TypeVar
+if TYPE_CHECKING:
+    from typing import NoReturn
 
+import psutil
+
+from pre_commit import git
+from pre_commit import output
 from pre_commit.metrics import monitor
-from pre_commit import output, git
 
 T = TypeVar('T')
 
@@ -26,6 +34,7 @@ COMMIT_MESSAGE_HEADER = """
 def should_run_concurrently(hook_stage: str) -> bool:
     return hook_stage == 'commit' and _is_editor_script_configured() and _should_open_editor()
 
+
 def run_concurrently(fun: Callable[..., T], *args: Any) -> T:
     # Allow user to enter commit message concurrently with running pre-commit hooks to lower
     # wait times.
@@ -36,6 +45,7 @@ def run_concurrently(fun: Callable[..., T], *args: Any) -> T:
 
     with contextlib.ExitStack() as paused_stdout_stack:
         paused_stdout_stack.enter_context(output.paused_stdout())
+
         def launch_editor() -> None:
             _edit_commit_message(commit_message_template)
             paused_stdout_stack.close()  # Resume terminal output as soon as the editor closes
@@ -45,24 +55,29 @@ def run_concurrently(fun: Callable[..., T], *args: Any) -> T:
             return retval_future.result()
     raise RuntimeError('unreachable')
 
+
 def should_clean_draft(hook_stage: str) -> bool:
     # We need to clean up the draft if one exists but we're not editing it, otherwise it's at risk
     # of being committed without further user interaction.
-    return (hook_stage == 'commit'
-            and _is_editor_script_configured()
-            and not _should_open_editor()
-            and COMMIT_MESSAGE_DRAFT_PATH.exists()
-           )
+    return (
+        hook_stage == 'commit' and
+        _is_editor_script_configured() and
+        not _should_open_editor() and
+        COMMIT_MESSAGE_DRAFT_PATH.exists()
+    )
+
 
 def clean_draft() -> None:
     COMMIT_MESSAGE_DRAFT_PATH.rename(COMMIT_MESSAGE_EXPIRED_DRAFT_PATH)
 
+
 class ParseFailed(BaseException):
     pass
 
+
 class NoExitParser(argparse.ArgumentParser):
     # exit_on_error option only exists in 3.9+, so we have to do this ourselves.
-    def error(self, _: str) -> NoReturn:
+    def error(self, _: str) -> 'NoReturn':
         raise ParseFailed()
 
 
@@ -75,8 +90,10 @@ def _should_open_editor() -> bool:
         # Teach the parser about all the allowable arguments to git commit and have it fail if any
         # others are present.
         parser = NoExitParser(add_help=False)
+
         def allowed_flag(*args: Any) -> None:
             parser.add_argument(*args, action='store_true')
+
         def allowed_option(*args: Any) -> None:
             parser.add_argument(*args)
 
@@ -129,13 +146,16 @@ def _should_open_editor() -> bool:
     except ParseFailed:
         return False
 
+
 def _is_editor_script_configured() -> bool:
     editor_script_path = git.get_editor_script_path()
     local_git_editor = _get_local_git_editor()
-    return (bool(local_git_editor)
-            and local_git_editor[0] == editor_script_path
-            and Path(editor_script_path).exists()
-           )
+    return (
+        bool(local_git_editor) and
+        local_git_editor[0] == editor_script_path and
+        Path(editor_script_path).exists()
+    )
+
 
 def _edit_commit_message(template: str) -> None:
     if not COMMIT_MESSAGE_DRAFT_PATH.exists():
@@ -151,17 +171,23 @@ def _edit_commit_message(template: str) -> None:
         with open('/dev/tty') as stdin:
             subprocess.call(git_editor + [str(COMMIT_MESSAGE_DRAFT_PATH)], stdin=stdin)
 
+
 def _get_local_git_editor() -> List[str]:
     editor_str = subprocess.run(['git', 'var', 'GIT_EDITOR'], check=True, capture_output=True).stdout.decode('utf-8')
     return shlex.split(editor_str)
 
+
 def _get_global_git_editor() -> List[str]:
     # The repo-local editor has been set to a special script. This gets the globally configured
     # editor.
-    editor_str = subprocess.run(['git', 'var', 'GIT_EDITOR'], cwd='/', check=True, capture_output=True).stdout.decode('utf-8')
+    editor_str = subprocess.run(
+        ['git', 'var', 'GIT_EDITOR'], cwd='/',
+        check=True, capture_output=True,
+    ).stdout.decode('utf-8')
     return shlex.split(editor_str)
+
 
 def _get_commit_message_template() -> str:
     status = subprocess.run(['git', 'status'], check=True, capture_output=True).stdout.decode('utf-8')
-    commented_status = "\n".join('# ' + line for line in status.splitlines())
+    commented_status = '\n'.join('# ' + line for line in status.splitlines())
     return COMMIT_MESSAGE_HEADER + commented_status

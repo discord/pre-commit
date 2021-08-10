@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import contextlib
-from dataclasses import dataclass
 import io
 import sys
 from threading import Lock
-from typing import Any, IO, Optional, Generator, cast
+from typing import Any
+from typing import cast
+from typing import Generator
+from typing import IO
+from typing import Optional
 
 stdout_lock = Lock()
+
 
 def write_b(b: bytes, stream: Optional[IO[bytes]] = None) -> None:
     if stream is None:
@@ -17,8 +21,10 @@ def write_b(b: bytes, stream: Optional[IO[bytes]] = None) -> None:
     stream.write(b)
     stream.flush()
 
+
 def write(s: str, stream: Optional[IO[bytes]] = None) -> None:
     write_b(s.encode(), stream)
+
 
 def write_line_b(
         s: bytes | None = None,
@@ -55,5 +61,6 @@ def paused_stdout() -> Generator[None, None, None]:
         # because otherwise another thread might write to stdout before we can write the buffered
         # stdout, resulting in out-of-order output.
         stdout_lock.acquire()
-    write_b(cast(io.BytesIO, redirected_output.buffer).getvalue(), sys.stdout.buffer)  # Supply buffer here so we don't deadlock.
+    redirected_output_bytes = cast(io.BytesIO, redirected_output.buffer).getvalue()
+    write_b(redirected_output_bytes, sys.stdout.buffer)  # Supply buffer here so we don't deadlock.
     stdout_lock.release()

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import logging
 import os.path
-import time
 import sys
+import time
 from collections.abc import Mapping
 
 from pre_commit.errors import FatalError
