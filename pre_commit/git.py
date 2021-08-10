@@ -199,7 +199,7 @@ def commit(repo: str = '.') -> None:
 
 
 def update_changes_concurrent(repo: str = '.') -> None:
-    # If sometime else is happening in the git repository (e.g. an editor calling git status) this
+    # If something else is happening in the git repository (e.g. an editor calling git status) this
     # command might fail. Retry a few times to see if it will succeed.
     MAX_TRIES = 3
     for i in range(MAX_TRIES):

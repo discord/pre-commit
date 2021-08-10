@@ -46,10 +46,12 @@ def write_line(s: Optional[str] = None, **kwargs: Any) -> None:
 
 @contextlib.contextmanager
 def paused_stdout() -> Generator[None, None, None]:
-        redirected_output = io.TextIOWrapper(io.BytesIO())
-        with contextlib.redirect_stdout(redirected_output):
-            yield
-            # We need to hold this lock through resetting stdout _and_ writing the saved contents.
-            stdout_lock.acquire()
-        write_b(cast(io.BytesIO, redirected_output.buffer).getvalue(), sys.stdout.buffer)  # Supply buffer here so we don't deadlock.
-        stdout_lock.release()
+    redirected_output = io.TextIOWrapper(io.BytesIO())
+    with contextlib.redirect_stdout(redirected_output):
+        yield
+        # We need to hold this lock through resetting stdout _and_ writing the saved contents,
+        # because otherwise another thread might write to stdout before we can write the buffered
+        # stdout, resulting in out-of-order output.
+        stdout_lock.acquire()
+    write_b(cast(io.BytesIO, redirected_output.buffer).getvalue(), sys.stdout.buffer)  # Supply buffer here so we don't deadlock.
+    stdout_lock.release()
