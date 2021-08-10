@@ -4,6 +4,7 @@ import logging
 import os.path
 import shlex
 import shutil
+import subprocess
 import sys
 
 from pre_commit import git
@@ -90,22 +91,41 @@ def _install_hook_script(
         args.append('--skip-on-missing-config')
 
     with open(hook_path, 'w') as hook_file:
-        contents = resource_text('hook-tmpl')
-        before, rest = contents.split(TEMPLATE_START)
-        _, after = rest.split(TEMPLATE_END)
+        if hook_type == 'editor':
+            contents = resource_text('editor-tmpl')
+            hook_file.write(contents)
+            config_process = subprocess.run(['git', 'config', '--local', '--get', 'core.editor'], capture_output=True)
+            current_editor = config_process.stdout.decode('utf-8').strip()
+            target_editor = git.get_editor_script_path()
+            if current_editor == target_editor:
+                # Already correctly configured; nothing to do.
+                pass
+            elif config_process.returncode != 0:
+                # No local editor set; configure integration.
+                subprocess.call(['git', 'config', '--local', 'core.editor', git.get_editor_script_path()])
+            else:
+                # Local editor differently configured; do not overwrite user config.
+                logger.error(
+                    'Refusing to overwrite local `core.editor` git config.\n'
+                    'hint: `git config --local --unset core.editor`'
+                )
+        else:
+            contents = resource_text('hook-tmpl')
+            before, rest = contents.split(TEMPLATE_START)
+            _, after = rest.split(TEMPLATE_END)
 
-        # on windows always use `/bin/sh` since `bash` might not be on PATH
-        # though we use bash-specific features `sh` on windows is actually
-        # bash in "POSIXLY_CORRECT" mode which still supports the features we
-        # use: subshells / arrays
-        if sys.platform == 'win32':  # pragma: win32 cover
-            hook_file.write('#!/bin/sh\n')
+            # on windows always use `/bin/sh` since `bash` might not be on PATH
+            # though we use bash-specific features `sh` on windows is actually
+            # bash in "POSIXLY_CORRECT" mode which still supports the features we
+            # use: subshells / arrays
+            if sys.platform == 'win32':  # pragma: win32 cover
+                hook_file.write('#!/bin/sh\n')
 
-        hook_file.write(before + TEMPLATE_START)
-        hook_file.write(f'INSTALL_PYTHON={shlex.quote(sys.executable)}\n')
-        args_s = shlex.join(args)
-        hook_file.write(f'ARGS=({args_s})\n')
-        hook_file.write(TEMPLATE_END + after)
+            hook_file.write(before + TEMPLATE_START)
+            hook_file.write(f'INSTALL_PYTHON={shlex.quote(sys.executable)}\n')
+            args_s = shlex.join(args)
+            hook_file.write(f'ARGS=({args_s})\n')
+            hook_file.write(TEMPLATE_END + after)
     make_executable(hook_path)
 
     output.write_line(f'pre-commit installed at {hook_path}')

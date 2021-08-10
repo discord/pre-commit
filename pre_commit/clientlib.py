@@ -33,6 +33,7 @@ HOOK_TYPES = (
     'pre-push',
     'pre-rebase',
     'prepare-commit-msg',
+    'editor'
 )
 # `manual` is not invoked by any installed git hook.  See #719
 STAGES = (*HOOK_TYPES, 'manual')
