@@ -7,7 +7,6 @@ import re
 import subprocess
 import time
 import unicodedata
-from pathlib import Path
 from typing import Any
 from typing import Collection
 from typing import Dict
@@ -19,18 +18,19 @@ from typing import Tuple
 
 from identify.identify import tags_from_path
 
-from pre_commit import color, editor
+from pre_commit import color
+from pre_commit import editor
 from pre_commit import git
 from pre_commit import output
 from pre_commit.clientlib import load_config
 from pre_commit.hook import Hook
 from pre_commit.languages.all import languages
+from pre_commit.metrics import monitor
 from pre_commit.repository import all_hooks
 from pre_commit.repository import install_hook_envs
 from pre_commit.staged_files_only import staged_files_only
 from pre_commit.store import Store
 from pre_commit.util import cmd_output_b
-from pre_commit.metrics import monitor
 
 
 logger = logging.getLogger('pre_commit')
@@ -431,7 +431,6 @@ def run(
 
         trace.set_success(retval == 0)
         return retval
-
 
     # https://github.com/python/mypy/issues/7726
     raise AssertionError('unreachable')
