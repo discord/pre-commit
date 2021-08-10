@@ -15,6 +15,7 @@ T = TypeVar('T')
 # Keeping the file name the same as git's makes it more likely that editors will set the file type
 # correctly when opening it.
 COMMIT_MESSAGE_DRAFT_PATH = Path('.git/pre-commit/COMMIT_EDITMSG')
+COMMIT_MESSAGE_EXPIRED_DRAFT_PATH = Path('.git/pre-commit/COMMIT_EDITMSG_OLD')
 COMMIT_MESSAGE_HEADER = """
 # Please enter the commit message for your changes. Lines starting
 # with '#' will be ignored, and an empty message aborts the commit.
@@ -23,7 +24,7 @@ COMMIT_MESSAGE_HEADER = """
 
 
 def should_run_concurrently(hook_stage: str) -> bool:
-    return hook_stage == 'commit' and _should_open_editor() and _is_editor_script_configured()
+    return hook_stage == 'commit' and _is_editor_script_configured() and _should_open_editor()
 
 def run_concurrently(fun: Callable[..., T], *args: Any) -> T:
     # Allow user to enter commit message concurrently with running pre-commit hooks to lower
@@ -44,6 +45,17 @@ def run_concurrently(fun: Callable[..., T], *args: Any) -> T:
             return retval_future.result()
     raise RuntimeError('unreachable')
 
+def should_clean_draft(hook_stage: str) -> bool:
+    # We need to clean up the draft if one exists but we're not editing it, otherwise it's at risk
+    # of being committed without further user interaction.
+    return (hook_stage == 'commit'
+            and _is_editor_script_configured()
+            and not _should_open_editor()
+            and COMMIT_MESSAGE_DRAFT_PATH.exists()
+           )
+
+def clean_draft() -> None:
+    COMMIT_MESSAGE_DRAFT_PATH.rename(COMMIT_MESSAGE_EXPIRED_DRAFT_PATH)
 
 class ParseFailed(BaseException):
     pass

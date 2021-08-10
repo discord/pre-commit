@@ -418,6 +418,10 @@ def run(
         to_install = [hook for hook in hooks if hook.id not in skips]
         install_hook_envs(to_install, store)
 
+        if editor.should_clean_draft(args.hook_stage):
+            editor.clean_draft()
+            logger.info(f'Moved outdated commit message to `{editor.COMMIT_MESSAGE_EXPIRED_DRAFT_PATH}`.')
+
         if editor.should_run_concurrently(args.hook_stage):
             retval = editor.run_concurrently(_run_hooks, config, hooks, skips, args, environ)
             if retval != 0:
