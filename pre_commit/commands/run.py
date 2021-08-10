@@ -420,6 +420,8 @@ def run(
 
         if editor.should_run_concurrently(args.hook_stage):
             retval = editor.run_concurrently(_run_hooks, config, hooks, skips, args, environ)
+            if retval != 0:
+                logger.info(f'Saved commit message to `{editor.COMMIT_MESSAGE_DRAFT_PATH}`.')
         else:
             retval = _run_hooks(config, hooks, skips, args, environ)
 

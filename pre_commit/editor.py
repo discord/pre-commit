@@ -29,6 +29,7 @@ def should_run_concurrently(hook_stage: str) -> bool:
 def run_concurrently(fun: Callable[..., T], *args: Any) -> T:
     # Allow user to enter commit message concurrently with running pre-commit hooks to lower
     # wait times.
+    output.write_line('Waiting for your editor (pre-commit hooks running in background)...')
 
     # Run git commands before starting hooks to avoid race conditions and git lock errors.
     commit_message_template = _get_commit_message_template()
