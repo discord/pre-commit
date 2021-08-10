@@ -1006,6 +1006,7 @@ def test_manifest_hooks(tempdir_factory, store):
         types=['file'],
         types_or=[],
         verbose=False,
+        commit_changes=False,
     )
 
 

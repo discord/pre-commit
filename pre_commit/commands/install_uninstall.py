@@ -2,6 +2,7 @@ import itertools
 import logging
 import os.path
 import shutil
+import subprocess
 import sys
 from typing import Optional
 from typing import Sequence
@@ -103,17 +104,36 @@ def _install_hook_script(
     params = {'INSTALL_PYTHON': sys.executable, 'ARGS': args}
 
     with open(hook_path, 'w') as hook_file:
-        contents = resource_text('hook-tmpl')
-        before, rest = contents.split(TEMPLATE_START)
-        to_template, after = rest.split(TEMPLATE_END)
+        if hook_type == 'editor':
+            contents = resource_text('editor-tmpl')
+            hook_file.write(contents)
+            config_process = subprocess.run(['git', 'config', '--local', '--get', 'core.editor'], capture_output=True)
+            current_editor = config_process.stdout.decode('utf-8').strip()
+            target_editor = git.get_editor_script_path()
+            if current_editor == target_editor:
+                # Already correctly configured; nothing to do.
+                pass
+            elif config_process.returncode != 0:
+                # No local editor set; configure integration.
+                subprocess.call(['git', 'config', '--local', 'core.editor', git.get_editor_script_path()])
+            else:
+                # Local editor differently configured; do not overwrite user config.
+                logger.error(
+                    'Refusing to overwrite local `core.editor` git config.\n'
+                    'hint: `git config --local --unset core.editor`'
+                )
+        else:
+            contents = resource_text('hook-tmpl')
+            before, rest = contents.split(TEMPLATE_START)
+            to_template, after = rest.split(TEMPLATE_END)
 
-        before = before.replace('#!/usr/bin/env python3', shebang())
+            before = before.replace('#!/usr/bin/env python3', shebang())
 
-        hook_file.write(before + TEMPLATE_START)
-        for line in to_template.splitlines():
-            var = line.split()[0]
-            hook_file.write(f'{var} = {params[var]!r}\n')
-        hook_file.write(TEMPLATE_END + after)
+            hook_file.write(before + TEMPLATE_START)
+            for line in to_template.splitlines():
+                var = line.split()[0]
+                hook_file.write(f'{var} = {params[var]!r}\n')
+            hook_file.write(TEMPLATE_END + after)
     make_executable(hook_path)
 
     output.write_line(f'pre-commit installed at {hook_path}')

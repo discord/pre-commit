@@ -7,6 +7,7 @@ import re
 import subprocess
 import time
 import unicodedata
+from pathlib import Path
 from typing import Any
 from typing import Collection
 from typing import Dict
@@ -18,7 +19,7 @@ from typing import Tuple
 
 from identify.identify import tags_from_path
 
-from pre_commit import color
+from pre_commit import color, editor
 from pre_commit import git
 from pre_commit import output
 from pre_commit.clientlib import load_config
@@ -190,7 +191,7 @@ def _run_single_hook(
             trace.set_success(not hook_failed)
 
         if files_modified and can_commit_changes:
-            git.update_changes()
+            git.update_changes_concurrent()
             # All changes should now be added -- there should no longer be any diff.
             diff_after = _get_diff()
             assert not diff_after
@@ -417,7 +418,17 @@ def run(
         to_install = [hook for hook in hooks if hook.id not in skips]
         install_hook_envs(to_install, store)
 
-        retval = _run_hooks(config, hooks, skips, args, environ)
+        if editor.should_clean_draft(args.hook_stage):
+            editor.clean_draft()
+            logger.info(f'Moved outdated commit message to `{editor.COMMIT_MESSAGE_EXPIRED_DRAFT_PATH}`.')
+
+        if editor.should_run_concurrently(args.hook_stage):
+            retval = editor.run_concurrently(_run_hooks, config, hooks, skips, args, environ)
+            if retval != 0:
+                logger.info(f'Saved commit message to `{editor.COMMIT_MESSAGE_DRAFT_PATH}`.')
+        else:
+            retval = _run_hooks(config, hooks, skips, args, environ)
+
         trace.set_success(retval == 0)
         return retval
 

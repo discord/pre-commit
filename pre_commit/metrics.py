@@ -53,8 +53,11 @@ class Monitor:
             end_time = datetime.now(timezone.utc)
             self.records.append(MetricRecord(name=name, successful=trace.successful, start_time=start_time, end_time=end_time))
 
-    def set_report_command(self, command: str) -> None:
-        self.report_command = shlex.split(command)
+    def set_report_command(self, command: Optional[str]) -> None:
+        if command is not None:
+            self.report_command = shlex.split(command)
+        else:
+            self.report_command = None
 
     def report_metrics(self) -> None:
         if self.report_command:
