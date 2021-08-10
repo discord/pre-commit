@@ -3,10 +3,7 @@ from dataclasses import dataclass
 import io
 import sys
 from threading import Lock
-from typing import Any
-from typing import IO
-from typing import Optional
-from typing import Generator
+from typing import Any, IO, Optional, Generator, cast
 
 stdout_lock = Lock()
 
@@ -54,5 +51,5 @@ def paused_stdout() -> Generator[None, None, None]:
             yield
             # We need to hold this lock through resetting stdout _and_ writing the saved contents.
             stdout_lock.acquire()
-        write_b(redirected_output.buffer.getvalue(), sys.stdout.buffer)  # Supply buffer here so we don't deadlock.
+        write_b(cast(io.BytesIO, redirected_output.buffer).getvalue(), sys.stdout.buffer)  # Supply buffer here so we don't deadlock.
         stdout_lock.release()

@@ -6,7 +6,7 @@ import concurrent.futures
 import subprocess
 import os
 from pathlib import Path
-from typing import Any, Callable, List, TypeVar
+from typing import Any, Callable, List, NoReturn, TypeVar
 
 from pre_commit.metrics import monitor
 from pre_commit import output, git
@@ -35,7 +35,7 @@ def run_concurrently(fun: Callable[..., T], *args: Any) -> T:
 
     with contextlib.ExitStack() as paused_stdout_stack:
         paused_stdout_stack.enter_context(output.paused_stdout())
-        def launch_editor():
+        def launch_editor() -> None:
             _edit_commit_message(commit_message_template)
             paused_stdout_stack.close()  # Resume terminal output as soon as the editor closes
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
@@ -50,7 +50,7 @@ class ParseFailed(BaseException):
 
 class NoExitParser(argparse.ArgumentParser):
     # exit_on_error option only exists in 3.9+, so we have to do this ourselves.
-    def error(self, _: str) -> None:
+    def error(self, _: str) -> NoReturn:
         raise ParseFailed()
 
 
@@ -63,9 +63,9 @@ def _should_open_editor() -> bool:
         # Teach the parser about all the allowable arguments to git commit and have it fail if any
         # others are present.
         parser = NoExitParser(add_help=False)
-        def allowed_flag(*args):
+        def allowed_flag(*args: Any) -> None:
             parser.add_argument(*args, action='store_true')
-        def allowed_option(*args):
+        def allowed_option(*args: Any) -> None:
             parser.add_argument(*args)
 
         allowed_flag('-a', '--all')
