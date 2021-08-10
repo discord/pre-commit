@@ -129,6 +129,11 @@ def _edit_commit_message(template: str) -> None:
     if not COMMIT_MESSAGE_DRAFT_PATH.exists():
         COMMIT_MESSAGE_DRAFT_PATH.parent.mkdir(parents=True, exist_ok=True)
         COMMIT_MESSAGE_DRAFT_PATH.write_text(template)
+    else:
+        # Update commit draft with new status
+        commit_draft = COMMIT_MESSAGE_DRAFT_PATH.read_text()
+        commit_draft = '\n'.join(line for line in commit_draft.splitlines() if not line.startswith('#'))
+        COMMIT_MESSAGE_DRAFT_PATH.write_text(commit_draft + template)
     git_editor = _get_global_git_editor()  # Doesn't run in this repo, so the concurrency won't cause git lock errors.
     with monitor.trace('precommit.editor'):
         with open('/dev/tty') as stdin:
