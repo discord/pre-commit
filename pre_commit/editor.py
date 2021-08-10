@@ -4,7 +4,6 @@ import shlex
 import contextlib
 import concurrent.futures
 import subprocess
-import os
 from pathlib import Path
 from typing import Any, Callable, List, NoReturn, TypeVar
 
@@ -132,7 +131,8 @@ def _edit_commit_message(template: str) -> None:
         COMMIT_MESSAGE_DRAFT_PATH.write_text(template)
     git_editor = _get_global_git_editor()  # Doesn't run in this repo, so the concurrency won't cause git lock errors.
     with monitor.trace('precommit.editor'):
-        subprocess.call(git_editor + [str(COMMIT_MESSAGE_DRAFT_PATH)])
+        with open('/dev/tty') as stdin:
+            subprocess.call(git_editor + [str(COMMIT_MESSAGE_DRAFT_PATH)], stdin=stdin)
 
 def _get_local_git_editor() -> List[str]:
     editor_str = subprocess.run(['git', 'var', 'GIT_EDITOR'], check=True, capture_output=True).stdout.decode('utf-8')
