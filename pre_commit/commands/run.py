@@ -430,7 +430,7 @@ def run(
         to_install = [hook for hook in hooks if hook.id not in skips]
         install_hook_envs(to_install, store)
 
-        if args.hook_stage == 'commit' and not _is_git_message_supplied() and _is_editor_script_configured():
+        if args.hook_stage == 'commit' and _should_open_editor() and _is_editor_script_configured():
             # Allow user to enter commit message concurrently with running pre-commit hooks to lower
             # wait times.
 
@@ -491,11 +491,78 @@ def _edit_commit_message(template: str) -> None:
         subprocess.call(git_editor + [str(COMMIT_MESSAGE_DRAFT_PATH)])
 
 
-def _is_git_message_supplied() -> bool:
-    # TODO: this
+class ParseFailed(BaseException):
+    pass
+
+class NoExitParser(argparse.ArgumentParser):
+    # exit_on_error option only exists in 3.9+, so we have to do this ourselves.
+    def error(self, _: str) -> None:
+        raise ParseFailed()
+
+
+def _should_open_editor() -> bool:
     import psutil
     git_invocation = psutil.Process().parent().cmdline()
-    return '-m' in git_invocation
+    if git_invocation[:2] != ['git', 'commit']:
+        # Some other command is being run; let's be conservative.
+        return False
+    try:
+        # Teach the parser about all the allowable arguments to git commit and have it fail if any
+        # others are present.
+        parser = NoExitParser(add_help=False)
+        def allowed_flag(*args):
+            parser.add_argument(*args, action='store_true')
+        def allowed_option(*args):
+            parser.add_argument(*args)
+
+        allowed_flag('-a', '--all')
+        allowed_flag('-p', '--patch')
+        allowed_flag('--reset-author')
+        allowed_flag('--branch')
+        allowed_flag('--allow-empty')
+        allowed_flag('--allow-empty-message')
+        allowed_flag('--amend')
+        allowed_flag('--no-post-rewrite')
+        allowed_flag('--status')  # We always include status.
+        allowed_flag('-i', '--include')
+        allowed_flag('-o', '--only')
+        allowed_flag('-q', '--quiet')
+        allowed_option('--author')
+        allowed_option('--date')
+        allowed_option('--cleanup')
+        allowed_option('--pathspec-from-file')
+        allowed_flag('--pathspec-file-nul')
+
+        # == Disallowed arguments ==
+        # -m <msg>, --message=<msg>  # Alternate means of supplying a commit message.
+        # -F <file>, --file=<file>  # Alternate means of supplying a commit message.
+        # -C <commit>, --reuse-message=<commit>  # Alternate means of supplying a commit message.
+        # -c <commit>, --reedit-message=<commit>  # Alternate means of supplying a commit message.
+
+        # --fixup=<commit>  # We don't support automatically constructing a fixup commit message.
+        # --squash=<commit>  # We don't support automatically constructing a squash commit message.
+        # --dry-run  # No commit actually made.
+        # --short  # Implies --dry-run.
+        # --porcelain  # Implies --dry-run.
+        # --long  # Implies --dry-run.
+        # -z, --null  # Intended to be used with --short or --porcelain.
+        # -t <file>, --template=<file>  # We don't support template files.
+        # -s, --signoff  # We don't support adding a signoff line.
+        # -n, --no-verify  # We shouldn't be called if this is passed.
+        # -e, --edit  # We don't support editing a commit message supplied from other sources.
+        # --no-edit  # Explicitly requests not launching an editor.
+        # -u[<mode>], --untracked-files[=<mode>]  # We don't support showing untracked files differently.
+        # -v, --verbose  # We don't support verbose git status.
+        # --no-status  # We don't support not including the status.
+        # -S, --gpg-sign[=<keyid>], --no-gpg-sign  # Optional arg is annoying to support; rarely used.
+
+        parser.add_argument('pathspec', nargs='+')
+        parser.parse_args(git_invocation)
+
+        # Parse succeeded -- no unknown args.
+        return True
+    except ParseFailed:
+        return False
 
 
 def _run_auto_editor(commit_msg_filename: str) -> int:
