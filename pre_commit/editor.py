@@ -103,7 +103,6 @@ def _should_open_editor() -> bool:
         allowed_flag('--branch')
         allowed_flag('--allow-empty')
         allowed_flag('--allow-empty-message')
-        allowed_flag('--amend')
         allowed_flag('--no-post-rewrite')
         allowed_flag('--status')  # We always include status.
         allowed_flag('-i', '--include')
@@ -121,6 +120,7 @@ def _should_open_editor() -> bool:
         # -C <commit>, --reuse-message=<commit>  # Alternate means of supplying a commit message.
         # -c <commit>, --reedit-message=<commit>  # Alternate means of supplying a commit message.
 
+        # --amend  # We don't support showing the correct set of changes or previous commit message.
         # --fixup=<commit>  # We don't support automatically constructing a fixup commit message.
         # --squash=<commit>  # We don't support automatically constructing a squash commit message.
         # --dry-run  # No commit actually made.
