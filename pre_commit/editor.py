@@ -175,6 +175,8 @@ def _edit_commit_message(template: str) -> None:
         COMMIT_MESSAGE_DRAFT_PATH.write_text(commit_draft + template)
     git_editor = _get_global_git_editor()  # Doesn't run in this repo, so the concurrency won't cause git lock errors.
     with monitor.trace('precommit.editor'):
+        # For some editors (e.g. vim), it's important that stdin be an interactive terminal.
+        # /dev/tty is a synonym for our process's controlling terminal.
         with open('/dev/tty') as stdin:
             subprocess.call(git_editor + [str(COMMIT_MESSAGE_DRAFT_PATH)], stdin=stdin)
 
