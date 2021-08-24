@@ -16,5 +16,5 @@ else
   pushd /
   global_editor="$(git var GIT_EDITOR)"
   popd
-  "$global_editor" "$@"
+  $global_editor "$@"
 fi
