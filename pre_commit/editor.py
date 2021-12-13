@@ -37,7 +37,7 @@ def should_run_concurrently(hook_stage: str) -> bool:
         hook_stage == 'commit' and
         _is_editor_script_configured() and
         _should_open_editor() and
-        platform.system != 'Windows'
+        platform.system() != 'Windows'
     )
 
 
@@ -90,7 +90,11 @@ class NoExitParser(argparse.ArgumentParser):
 
 def _should_open_editor() -> bool:
     git_invocation = psutil.Process().parent().cmdline()
-    if git_invocation[:2] != ['git', 'commit']:
+    if len(git_invocation) < 2:
+        return False
+    git_binary = git_invocation[0]
+    git_command = git_invocation[1]
+    if Path(git_binary).name != 'git' and git_command != 'commit':
         # Some other command is being run; let's be conservative.
         return False
     try:
