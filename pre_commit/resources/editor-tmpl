@@ -13,8 +13,8 @@ if [ -f "$DRAFT_FILE" ]; then
   cat "$DRAFT_FILE" > "$1"
   rm -f "$DRAFT_FILE"
 else
-  pushd /
+  pushd / > /dev/null
   global_editor="$(git var GIT_EDITOR)"
-  popd
+  popd > /dev/null
   $global_editor "$@"
 fi
