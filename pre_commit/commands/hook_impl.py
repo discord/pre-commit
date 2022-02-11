@@ -12,6 +12,7 @@ from pre_commit.parse_shebang import normalize_cmd
 from pre_commit.store import Store
 
 Z40 = '0' * 40
+BRANCH_PREFIX = 'refs/heads/'
 
 
 def _run_legacy(
@@ -111,49 +112,86 @@ def _pre_push_ns(
     remote_name = args[0]
     remote_url = args[1]
 
+    # TODO(zombiezen): This only triggers hooks for a single ref,
+    # instead of all refs pushed.
     for line in stdin.decode().splitlines():
-        local_branch, local_sha, remote_branch, remote_sha = line.split()
+        local_ref, local_sha, remote_ref, remote_sha = line.split()
         if local_sha == Z40:
+            # We're deleting a remote ref. Ignore.
             continue
-        elif remote_sha != Z40 and _rev_exists(remote_sha):
+        elif remote_sha == Z40:
+            # We are creating a new remote ref.
+            return _ns(
+                'pre-push', color,
+                from_ref=Z40, to_ref=local_sha,
+                remote_branch=remote_ref,
+                local_branch=local_ref,
+                remote_name=remote_name, remote_url=remote_url,
+            )
+        elif _rev_exists(remote_sha):
+            # Updating a remote ref
+            # where we have the remote's current commit available locally.
             return _ns(
                 'pre-push', color,
                 from_ref=remote_sha, to_ref=local_sha,
-                remote_branch=remote_branch,
-                local_branch=local_branch,
+                remote_branch=remote_ref,
+                local_branch=local_ref,
                 remote_name=remote_name, remote_url=remote_url,
             )
         else:
-            # ancestors not found in remote
-            ancestors = subprocess.check_output((
+            # Updating a remote ref
+            # where we don't know the exact history.
+
+            if not remote_ref.startswith(BRANCH_PREFIX):
+                # No tracking branch available.
+                # Treat this like branch creation.
+                return _ns(
+                    'pre-push', color,
+                    from_ref=Z40, to_ref=local_sha,
+                    remote_branch=remote_ref,
+                    local_branch=local_ref,
+                    remote_name=remote_name, remote_url=remote_url,
+                )
+
+            # Get the list of local commits
+            # (leading up to and including the one we're trying to push)
+            # not found in the remote tracking branch.
+            remote_branch = remote_ref[len(BRANCH_PREFIX):]
+            ancestors = subprocess.run((
                 'git', 'rev-list', local_sha, '--topo-order', '--reverse',
-                '--not', f'--remotes={remote_name}',
-            )).decode().strip()
+                '--not', f'refs/remotes/{remote_name}/{remote_branch}',
+            ), stdout=subprocess.PIPE).stdout.decode().strip()
             if not ancestors:
-                continue
+                # The local commit has already been pushed to the remote.
+                return _ns(
+                    'pre-push', color,
+                    from_ref=local_sha, to_ref=local_sha,
+                    remote_name=remote_name, remote_url=remote_url,
+                    remote_branch=remote_ref,
+                    local_branch=local_ref,
+                )
+            first_ancestor = ancestors.splitlines()[0]
+            cmd = ('git', 'rev-list', '--max-parents=0', local_sha)
+            roots = set(subprocess.check_output(cmd).decode().splitlines())
+            if first_ancestor in roots:
+                # pushing the whole tree including root commit
+                return _ns(
+                    'pre-push', color,
+                    all_files=True,
+                    remote_name=remote_name, remote_url=remote_url,
+                    remote_branch=remote_ref,
+                    local_branch=local_ref,
+                )
             else:
-                first_ancestor = ancestors.splitlines()[0]
-                cmd = ('git', 'rev-list', '--max-parents=0', local_sha)
-                roots = set(subprocess.check_output(cmd).decode().splitlines())
-                if first_ancestor in roots:
-                    # pushing the whole tree including root commit
-                    return _ns(
-                        'pre-push', color,
-                        all_files=True,
-                        remote_name=remote_name, remote_url=remote_url,
-                        remote_branch=remote_branch,
-                        local_branch=local_branch,
-                    )
-                else:
-                    rev_cmd = ('git', 'rev-parse', f'{first_ancestor}^')
-                    source = subprocess.check_output(rev_cmd).decode().strip()
-                    return _ns(
-                        'pre-push', color,
-                        from_ref=source, to_ref=local_sha,
-                        remote_name=remote_name, remote_url=remote_url,
-                        remote_branch=remote_branch,
-                        local_branch=local_branch,
-                    )
+                rev_cmd = ('git', 'rev-parse', f'{first_ancestor}^')
+                source = subprocess.check_output(rev_cmd).decode().strip()
+                return _ns(
+                    'pre-push', color,
+                    from_ref=source, to_ref=local_sha,
+                    remote_name=remote_name, remote_url=remote_url,
+                    remote_branch=remote_ref,
+                    local_branch=local_ref,
+                )
 
     # nothing to push
     return None
