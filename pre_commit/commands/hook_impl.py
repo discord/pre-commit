@@ -109,6 +109,24 @@ def _pre_push_ns(
         args: Sequence[str],
         stdin: bytes,
 ) -> Optional[argparse.Namespace]:
+    # pre-commit thinks of pre-push hooks through the lens of linters:
+    # it wants to avoid running the hook
+    # if all the changes have been pushed already.
+    # When it does run, it tries to determine a "primary" branch divergence point,
+    # but Git has no real concept of that,
+    # so instead it uses all the remote's existing branches as a proxy.
+    #
+    # Discord has pre-push hooks (namely branch name checks)
+    # that really need to run on every push,
+    # so this function has been heavily modified for Discord.
+    # Once a ref is created,
+    # it's easy to say "we need to run checks on files that were modified from here to here",
+    # but during ref creation, we literally have no reference point.
+    # zombiezen originally tried kludging to preserve behavior,
+    # but the resulting algorithm was really inconsistent and hard to reason about.
+    # Instead, we use the special all-zero hash (which is what Git uses)
+    # in any situation where a new ref is being created.
+
     remote_name = args[0]
     remote_url = args[1]
 
