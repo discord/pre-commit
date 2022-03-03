@@ -288,7 +288,7 @@ def test_run_ns_pre_push_new_branch(push_example):
         ns = hook_impl._run_ns('pre-push', False, args, stdin)
 
     assert ns is not None
-    assert ns.from_ref == src_head
+    assert ns.from_ref == hook_impl.Z40
     assert ns.to_ref == clone_head
 
 
@@ -300,7 +300,9 @@ def test_run_ns_pre_push_new_branch_existing_rev(push_example):
         stdin = f'HEAD {src_head} refs/heads/b2 {hook_impl.Z40}\n'.encode()
         ns = hook_impl._run_ns('pre-push', False, args, stdin)
 
-    assert ns is None
+    assert ns is not None
+    assert ns.from_ref == hook_impl.Z40
+    assert ns.to_ref == src_head
 
 
 def test_run_ns_pre_push_ref_with_whitespace(push_example):
@@ -328,7 +330,8 @@ def test_pushing_orphan_branch(push_example):
         ns = hook_impl._run_ns('pre-push', False, args, stdin)
 
     assert ns is not None
-    assert ns.all_files is True
+    assert ns.from_ref == hook_impl.Z40
+    assert ns.to_ref == clone_rev
 
 
 def test_run_ns_pre_push_deleting_branch(push_example):
