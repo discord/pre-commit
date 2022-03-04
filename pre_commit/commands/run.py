@@ -257,6 +257,8 @@ def _all_filenames(args: argparse.Namespace) -> Iterable[str]:
         return ()
     elif args.hook_stage in {'prepare-commit-msg', 'commit-msg'}:
         return (args.commit_msg_filename,)
+    elif args.from_ref == ('0' * 40):
+        return ()
     elif args.from_ref and args.to_ref:
         return git.get_changed_files(args.from_ref, args.to_ref)
     elif args.files:
