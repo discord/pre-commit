@@ -1,5 +1,4 @@
 import json
-from locale import normalize
 import shlex
 import subprocess
 from contextlib import contextmanager
