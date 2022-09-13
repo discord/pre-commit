@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from datetime import timezone
+from pre_commit import parse_shebang
 from typing import Dict
 from typing import Generator
 from typing import List
@@ -72,7 +73,8 @@ class Monitor:
     def report_metrics(self) -> None:
         if self.report_command:
             record_json = json.dumps([record.for_json() for record in self.records])
-            subprocess.run(self.report_command + [record_json])
+            normalized_command = list(parse_shebang.normalize_cmd(tuple(self.report_command)))
+            subprocess.run(normalized_command + [record_json])
 
 
 monitor = Monitor()
