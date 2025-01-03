@@ -34,7 +34,7 @@ COMMIT_MESSAGE_HEADER = """
 
 def should_run_concurrently(hook_stage: str) -> bool:
     return (
-        hook_stage == 'commit' and
+        hook_stage == 'pre-commit' and
         _is_editor_script_configured() and
         _should_open_editor() and
         platform.system() != 'Windows'
@@ -66,7 +66,7 @@ def should_clean_draft(hook_stage: str) -> bool:
     # We need to clean up the draft if one exists but we're not editing it, otherwise it's at risk
     # of being committed without further user interaction.
     return (
-        hook_stage == 'commit' and
+        hook_stage == 'pre-commit' and
         _is_editor_script_configured() and
         not _should_open_editor() and
         COMMIT_MESSAGE_DRAFT_PATH.exists() and
@@ -94,7 +94,7 @@ def _should_open_editor() -> bool:
         return False
     git_binary = git_invocation[0]
     git_command = git_invocation[1]
-    if Path(git_binary).name != 'git' and git_command != 'commit':
+    if Path(git_binary).name != 'git' and git_command != 'pre-commit':
         # Some other command is being run; let's be conservative.
         return False
     try:
