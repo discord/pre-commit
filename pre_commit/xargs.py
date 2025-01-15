@@ -132,10 +132,11 @@ def _thread_mapper(maxsize: int) -> Generator[
             yield ex.map
 
 
-def stream_subprocess_output(cmd, **kwargs) -> Generator[bytes, None, None]:
+def stream_subprocess_output(cmd, **kwargs) -> Generator[tuple[bytes, int | None], None, None]:
     """
-    Run `cmd` as a subprocess and yield stdout/stderr chunks as they become available.
+    Run `cmd` as a subprocess and yield (chunk, returncode) tuples as output becomes available.
     Merged stdout + stderr (because of stderr=STDOUT).
+    returncode is None until the process completes.
     """
     proc = subprocess.Popen(
         cmd,
@@ -149,20 +150,21 @@ def stream_subprocess_output(cmd, **kwargs) -> Generator[bytes, None, None]:
             process_done = (proc.poll() is not None)
 
             if not process_done:
-                # Wait up to 0.1s for data to become ready on proc.stdout
                 ready, _, _ = select.select([proc.stdout], [], [], 0.1)
                 if not ready:
                     continue
 
             chunk = proc.stdout.read1(1024)
             if chunk:
-                yield chunk
+                yield chunk, None
             else:
                 if process_done:
                     break
     finally:
         proc.stdout.close()
         proc.wait()
+        # Yield one final time with the returncode
+        yield b'', proc.returncode
 
 
 def xargs(
@@ -212,17 +214,18 @@ def xargs(
             )
 
         output = b''
+        returncode = 0
 
         with stdout_lock:
             sys.stdout.buffer.write(b'\n')
             sys.stdout.buffer.flush()
 
-        for chunk in stream_subprocess_output(cmd):
+        for chunk, maybe_returncode in stream_subprocess_output(cmd):
             output += chunk
-
-            # Print immediately
             sys.stdout.buffer.write(chunk)
             sys.stdout.buffer.flush()
+            if maybe_returncode is not None:
+                returncode = maybe_returncode
 
         terminal_width = shutil.get_terminal_size((80, 20)).columns
         strip_ansi = re.compile(rb'\x1B\[[0-?]*[ -/]*[@-~]')
@@ -240,7 +243,7 @@ def xargs(
             sys.stdout.buffer.write(f'\033[{line_count}A\033[73C'.encode())
             sys.stdout.buffer.flush()
         
-        return 0, output, None
+        return returncode, output, None
 
     threads = min(len(partitions), target_concurrency)
     with _thread_mapper(threads) as thread_map:
