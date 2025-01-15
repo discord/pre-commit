@@ -215,8 +215,10 @@ def _run_single_hook(
         else:
             output.write_line(color.format_color(status, print_color, use_color))
 
+    # If the hook is streaming output, then we've saved the cursor position at the end of the output of the hook
+    # and moved the cursor back to the beginning to print the status result.
     if hook.stream_output:
-        output.write_b(b'\0338')
+        output.write_b(b'\0338')  # Restore cursor to saved position
 
     if verbose or hook.verbose or retcode or files_modified:
         _subtle_line(f'- hook id: {hook.id}', use_color)

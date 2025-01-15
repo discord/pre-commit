@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Optional
 
 from pre_commit import lang_base
 from pre_commit.prefix import Prefix
@@ -21,7 +22,7 @@ def run_hook(
         is_local: bool,
         require_serial: bool,
         color: bool,
-        stream_output: bool | None,
+        stream_output: Optional[bool],
 ) -> tuple[int, bytes]:
     cmd = lang_base.hook_cmd(entry, args)
     cmd = (prefix.path(cmd[0]), *cmd[1:])

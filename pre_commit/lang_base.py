@@ -11,6 +11,7 @@ from typing import Any
 from typing import ContextManager
 from typing import NoReturn
 from typing import Protocol
+from typing import Optional
 
 import pre_commit.constants as C
 from pre_commit import parse_shebang
@@ -55,7 +56,7 @@ class Language(Protocol):
             is_local: bool,
             require_serial: bool,
             color: bool,
-            stream_output: bool | None,
+            stream_output: Optional[bool],
     ) -> tuple[int, bytes]:
         ...
 
@@ -159,7 +160,7 @@ def run_xargs(
         *,
         require_serial: bool,
         color: bool,
-        stream_output: bool | None,
+        stream_output: Optional[bool],
 ) -> tuple[int, bytes]:
     if require_serial:
         jobs = 1

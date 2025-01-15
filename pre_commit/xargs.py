@@ -6,6 +6,7 @@ import math
 import multiprocessing
 import os
 import re
+import select
 import shutil
 import subprocess
 import sys
@@ -131,6 +132,39 @@ def _thread_mapper(maxsize: int) -> Generator[
             yield ex.map
 
 
+def stream_subprocess_output(cmd, **kwargs) -> Generator[bytes, None, None]:
+    """
+    Run `cmd` as a subprocess and yield stdout/stderr chunks as they become available.
+    Merged stdout + stderr (because of stderr=STDOUT).
+    """
+    proc = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        **kwargs,
+    )
+
+    try:
+        while True:
+            process_done = (proc.poll() is not None)
+
+            if not process_done:
+                # Wait up to 0.1s for data to become ready on proc.stdout
+                ready, _, _ = select.select([proc.stdout], [], [], 0.1)
+                if not ready:
+                    continue
+
+            chunk = proc.stdout.read1(1024)
+            if chunk:
+                yield chunk
+            else:
+                if process_done:
+                    break
+    finally:
+        proc.stdout.close()
+        proc.wait()
+
+
 def xargs(
         cmd: tuple[str, ...],
         varargs: Sequence[str],
@@ -177,27 +211,18 @@ def xargs(
                 *run_cmd, check=False, stderr=subprocess.STDOUT, **kwargs,
             )
 
-        proc = subprocess.Popen(
-            run_cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            **kwargs,
-        )
         output = b''
 
         with stdout_lock:
             sys.stdout.buffer.write(b'\n')
             sys.stdout.buffer.flush()
 
-        while True:
-            chunk = proc.stdout.read1()
-            if chunk:
-                output += chunk
-                with stdout_lock:
-                    sys.stdout.buffer.write(chunk)
-                    sys.stdout.buffer.flush()
-            if proc.poll() is not None:
-                break
+        for chunk in stream_subprocess_output(cmd):
+            output += chunk
+
+            # Print immediately
+            sys.stdout.buffer.write(chunk)
+            sys.stdout.buffer.flush()
 
         terminal_width = shutil.get_terminal_size((80, 20)).columns
         strip_ansi = re.compile(rb'\x1B\[[0-?]*[ -/]*[@-~]')
@@ -210,11 +235,12 @@ def xargs(
             line_count += math.ceil(displayed_width / terminal_width)
 
         with stdout_lock:
-            sys.stdout.buffer.write(b'\0337')  # Save cursor
+            sys.stdout.buffer.write(b'\0337')  # Save cursor position
+            # Move cursor back to original line and move 73 columns to the right, where the status result begins
             sys.stdout.buffer.write(f'\033[{line_count}A\033[73C'.encode())
             sys.stdout.buffer.flush()
-
-        return proc.returncode, output, None
+        
+        return 0, output, None
 
     threads = min(len(partitions), target_concurrency)
     with _thread_mapper(threads) as thread_map:
