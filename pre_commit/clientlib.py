@@ -232,6 +232,7 @@ MANIFEST_HOOK_DICT = cfgv.Map(
     StagesMigration('stages', []),
     cfgv.Optional('verbose', cfgv.check_bool, False),
     cfgv.Optional('commit_changes', cfgv.check_bool, False),
+    cfgv.Optional('stream_output', cfgv.check_bool, False),
 )
 MANIFEST_SCHEMA = cfgv.Array(MANIFEST_HOOK_DICT)
 

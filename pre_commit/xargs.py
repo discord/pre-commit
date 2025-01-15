@@ -5,6 +5,8 @@ import contextlib
 import math
 import multiprocessing
 import os
+import re
+import shutil
 import subprocess
 import sys
 from collections.abc import Generator
@@ -18,6 +20,7 @@ from typing import TypeVar
 from pre_commit import parse_shebang
 from pre_commit.util import cmd_output_b
 from pre_commit.util import cmd_output_p
+from pre_commit.output import stdout_lock
 
 TArg = TypeVar('TArg')
 TRet = TypeVar('TRet')
@@ -135,6 +138,7 @@ def xargs(
         color: bool = False,
         target_concurrency: int = 1,
         _max_length: int = _get_platform_max_length(),
+        stream_output: bool | None = None,
         **kwargs: Any,
 ) -> tuple[int, bytes]:
     """A simplified implementation of xargs.
@@ -168,9 +172,49 @@ def xargs(
     def run_cmd_partition(
             run_cmd: tuple[str, ...],
     ) -> tuple[int, bytes, bytes | None]:
-        return cmd_fn(
-            *run_cmd, check=False, stderr=subprocess.STDOUT, **kwargs,
+        if not stream_output:
+            return cmd_fn(
+                *run_cmd, check=False, stderr=subprocess.STDOUT, **kwargs,
+            )
+
+        proc = subprocess.Popen(
+            run_cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            **kwargs,
         )
+        output = b''
+
+        with stdout_lock:
+            sys.stdout.buffer.write(b'\n')
+            sys.stdout.buffer.flush()
+
+        while True:
+            chunk = proc.stdout.read1()
+            if chunk:
+                output += chunk
+                with stdout_lock:
+                    sys.stdout.buffer.write(chunk)
+                    sys.stdout.buffer.flush()
+            if proc.poll() is not None:
+                break
+
+        terminal_width = shutil.get_terminal_size((80, 20)).columns
+        strip_ansi = re.compile(rb'\x1B\[[0-?]*[ -/]*[@-~]')
+        plain_output = strip_ansi.sub(b'', output)
+        standard_lines = plain_output.split(b'\n')
+        line_count = 0
+
+        for line in standard_lines:
+            displayed_width = max(1, len(line))
+            line_count += math.ceil(displayed_width / terminal_width)
+
+        with stdout_lock:
+            sys.stdout.buffer.write(b'\0337')  # Save cursor
+            sys.stdout.buffer.write(f'\033[{line_count}A\033[73C'.encode())
+            sys.stdout.buffer.flush()
+
+        return proc.returncode, output, None
 
     threads = min(len(partitions), target_concurrency)
     with _thread_mapper(threads) as thread_map:

@@ -36,6 +36,7 @@ class Hook(NamedTuple):
     stages: Sequence[str]
     verbose: bool
     commit_changes: bool
+    stream_output: bool
 
     @property
     def install_key(self) -> tuple[Prefix, str, str, tuple[str, ...]]:

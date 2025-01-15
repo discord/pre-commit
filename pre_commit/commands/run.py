@@ -184,6 +184,7 @@ def _run_single_hook(
                     is_local=hook.src == 'local',
                     require_serial=hook.require_serial,
                     color=use_color,
+                    stream_output=hook.stream_output,
                 )
             duration = round(time.monotonic() - time_before, 2) or 0
             diff_after = _get_diff()
@@ -209,7 +210,13 @@ def _run_single_hook(
             print_color = color.GREEN
             status = 'Passed'
 
-        output.write_line(color.format_color(status, print_color, use_color))
+        if hook.stream_output:
+            output.write(color.format_color(status, print_color, use_color))
+        else:
+            output.write_line(color.format_color(status, print_color, use_color))
+
+    if hook.stream_output:
+        output.write_b(b'\0338')
 
     if verbose or hook.verbose or retcode or files_modified:
         _subtle_line(f'- hook id: {hook.id}', use_color)
