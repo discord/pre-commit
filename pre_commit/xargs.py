@@ -17,11 +17,13 @@ from collections.abc import Sequence
 from typing import Any
 from typing import Callable
 from typing import TypeVar
+from typing import Optional
 
 from pre_commit import parse_shebang
 from pre_commit.util import cmd_output_b
 from pre_commit.util import cmd_output_p
-from pre_commit.output import stdout_lock
+from pre_commit.output import write
+from pre_commit.output import write_b
 
 TArg = TypeVar('TArg')
 TRet = TypeVar('TRet')
@@ -174,7 +176,8 @@ def xargs(
         color: bool = False,
         target_concurrency: int = 1,
         _max_length: int = _get_platform_max_length(),
-        stream_output: bool | None = None,
+        stream_output: Optional[bool] = None,
+        start_msg: Optional[str] = None,
         **kwargs: Any,
 ) -> tuple[int, bytes]:
     """A simplified implementation of xargs.
@@ -215,20 +218,14 @@ def xargs(
 
         output = b''
         returncode = 0
-
-        with stdout_lock:
-            sys.stdout.buffer.write(b'\n')
-            sys.stdout.buffer.flush()
-
+        write('\n')
         for chunk, maybe_returncode in stream_subprocess_output(cmd):
             output += chunk
-            with stdout_lock:
-                sys.stdout.buffer.write(chunk)
-                sys.stdout.buffer.flush()
+            write_b(chunk)
             if maybe_returncode is not None:
                 returncode = maybe_returncode
 
-        terminal_width = shutil.get_terminal_size((80, 20)).columns
+        terminal_size = shutil.get_terminal_size((80, 20))
         strip_ansi = re.compile(rb'\x1B\[[0-?]*[ -/]*[@-~]')
         plain_output = strip_ansi.sub(b'', output)
         standard_lines = plain_output.split(b'\n')
@@ -236,13 +233,14 @@ def xargs(
 
         for line in standard_lines:
             displayed_width = max(1, len(line))
-            line_count += math.ceil(displayed_width / terminal_width)
+            line_count += math.ceil(displayed_width / terminal_size.columns)
 
-        with stdout_lock:
-            sys.stdout.buffer.write(b'\0337')  # Save cursor position
-            # Move cursor back to original line and move 73 columns to the right, where the status result begins
-            sys.stdout.buffer.write(f'\033[{line_count}A\033[73C'.encode())
-            sys.stdout.buffer.flush()
+        if line_count >= terminal_size.lines: # The original hook start message has scrolled out of view
+            write(start_msg + '\n') # Reprint the status message
+            line_count = 1
+
+        write('\0337') # Save cursor position
+        write(f'\033[{line_count}A\033[73C') # Move cursor back to end of the start message
         
         return returncode, output, None
 

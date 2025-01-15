@@ -23,6 +23,7 @@ def run_hook(
         require_serial: bool,
         color: bool,
         stream_output: Optional[bool],
+        start_msg: Optional[str],
 ) -> tuple[int, bytes]:
     cmd = lang_base.hook_cmd(entry, args)
     cmd = (prefix.path(cmd[0]), *cmd[1:])
@@ -31,6 +32,7 @@ def run_hook(
         file_args,
         require_serial=require_serial,
         color=color,
+        start_msg=start_msg,
         stream_output=stream_output,
     )
 
