@@ -222,8 +222,9 @@ def xargs(
 
         for chunk, maybe_returncode in stream_subprocess_output(cmd):
             output += chunk
-            sys.stdout.buffer.write(chunk)
-            sys.stdout.buffer.flush()
+            with stdout_lock:
+                sys.stdout.buffer.write(chunk)
+                sys.stdout.buffer.flush()
             if maybe_returncode is not None:
                 returncode = maybe_returncode
 
