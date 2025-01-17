@@ -5,6 +5,7 @@ import os
 import shutil
 from collections.abc import Generator
 from collections.abc import Sequence
+from typing import Optional
 
 from pre_commit import lang_base
 from pre_commit.envcontext import envcontext
@@ -27,6 +28,8 @@ def run_hook(
         is_local: bool,
         require_serial: bool,
         color: bool,
+        stream_output: Optional[bool],
+        start_msg: Optional[str],
 ) -> tuple[int, bytes]:
     # `entry` is a (hook-repo relative) file followed by (optional) args, e.g.
     # `bin/id.jl` or `bin/hook.jl --arg1 --arg2` so we
@@ -43,6 +46,8 @@ def run_hook(
         file_args,
         require_serial=require_serial,
         color=color,
+        stream_output=stream_output,
+        start_msg=start_msg,
     )
 
 

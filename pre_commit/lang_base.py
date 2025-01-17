@@ -195,7 +195,8 @@ def basic_run_hook(
         is_local: bool,
         require_serial: bool,
         color: bool,
-        stream_output: bool | None,
+        stream_output: Optional[bool],
+        start_msg: Optional[str],
 ) -> tuple[int, bytes]:
     return run_xargs(
         hook_cmd(entry, args),
@@ -203,4 +204,5 @@ def basic_run_hook(
         require_serial=require_serial,
         color=color,
         stream_output=stream_output,
+        start_msg=start_msg,
     )
