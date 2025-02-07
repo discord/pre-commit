@@ -134,7 +134,7 @@ def _thread_mapper(maxsize: int) -> Generator[
             yield ex.map
 
 
-def stream_subprocess_output(cmd, **kwargs) -> Generator[tuple[bytes, int | None], None, None]:
+def stream_subprocess_output(cmd: Sequence[str], **kwargs: Any) -> Generator[tuple[bytes, int | None], None, None]:
     """
     Run `cmd` as a subprocess and yield (chunk, returncode) tuples as output becomes available.
     Merged stdout + stderr (because of stderr=STDOUT).
@@ -148,22 +148,33 @@ def stream_subprocess_output(cmd, **kwargs) -> Generator[tuple[bytes, int | None
     )
 
     try:
-        while True:
-            process_done = (proc.poll() is not None)
-
-            if not process_done:
-                ready, _, _ = select.select([proc.stdout], [], [], 0.1)
-                if not ready:
-                    continue
-
-            chunk = proc.stdout.read1(1024)
-            if chunk:
-                yield chunk, None
-            else:
-                if process_done:
+        if sys.platform == 'win32':
+            # On Windows, select.select() doesn't work with pipes,
+            # so we use blocking reads.
+            if proc.stdout is None:
+                raise RuntimeError("proc.stdout is None")
+            while True:
+                chunk = proc.stdout.read(1024)
+                if chunk:
+                    yield chunk, None
+                else:
                     break
+        else:
+            while True:
+                process_done = (proc.poll() is not None)
+                if not process_done:
+                    ready, _, _ = select.select([proc.stdout], [], [], 0.1)
+                    if not ready:
+                        continue
+                chunk = proc.stdout.read1(1024)
+                if chunk:
+                    yield chunk, None
+                else:
+                    if process_done:
+                        break
     finally:
-        proc.stdout.close()
+        if proc.stdout is not None:
+            proc.stdout.close()
         proc.wait()
         # Yield one final time with the returncode
         yield b'', proc.returncode
