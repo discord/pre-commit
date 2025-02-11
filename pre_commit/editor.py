@@ -26,6 +26,7 @@ T = TypeVar('T')
 COMMIT_MESSAGE_DRAFT_PATH = Path('.git/pre-commit/COMMIT_EDITMSG')
 COMMIT_MESSAGE_EXPIRED_DRAFT_PATH = Path('.git/pre-commit/COMMIT_EDITMSG_OLD')
 COMMIT_MESSAGE_HEADER = """
+# ------------------------ >8 ------------------------
 # Please enter the commit message for your changes. Lines starting
 # with '#' will be ignored, and an empty message aborts the commit.
 #
