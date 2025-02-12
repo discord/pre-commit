@@ -195,7 +195,7 @@ def _run_single_hook(
             files_modified = diff_before != diff_after
             # We can't easily commit changes if another hook has made uncomitted modifications.
             # In that case, just fail the hook instead.
-            can_commit_changes = hook.commit_changes and not diff_before
+            can_commit_changes = hook.commit_changes and not diff_before and os.environ.get('PRE_PUSH_PRO') != '1'
             hook_failed = bool(retcode) or (files_modified and not can_commit_changes)
             trace.set_success(not hook_failed)
 
@@ -278,6 +278,8 @@ def _all_filenames(args: argparse.Namespace) -> Iterable[str]:
         return git.get_all_files()
     elif git.is_in_merge_conflict():
         return git.get_conflicted_files()
+    elif os.environ.get('PRE_PUSH_PRO') == '1':
+        return git.get_files_against_merge_base()
     else:
         return git.get_staged_files()
 

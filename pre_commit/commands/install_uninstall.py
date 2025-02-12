@@ -6,6 +6,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+from typing import Optional
 
 from pre_commit import git
 from pre_commit import output
@@ -68,6 +69,7 @@ def _install_hook_script(
         overwrite: bool = False,
         skip_on_missing_config: bool = False,
         git_dir: str | None = None,
+        pro: bool = False,
 ) -> None:
     hook_path, legacy_path = _hook_paths(hook_type, git_dir=git_dir)
 
@@ -110,7 +112,8 @@ def _install_hook_script(
                     'hint: `git config --local --unset core.editor`',
                 )
         else:
-            contents = resource_text('hook-tmpl')
+            tmpl = 'hook-tmpl-pro' if pro else 'hook-tmpl'
+            contents = resource_text(tmpl)
             before, rest = contents.split(TEMPLATE_START)
             _, after = rest.split(TEMPLATE_END)
 
@@ -124,7 +127,11 @@ def _install_hook_script(
             hook_file.write(before + TEMPLATE_START)
             hook_file.write(f'INSTALL_PYTHON={shlex.quote(sys.executable)}\n')
             args_s = shlex.join(args)
-            hook_file.write(f'ARGS=({args_s})\n')
+            if pro:
+                hook_file.write(f'COMMIT_ARGS=({args_s})\n'.replace(hook_type, 'pre-commit'))
+                hook_file.write(f'PUSH_ARGS=({args_s})\n')
+            else:
+                hook_file.write(f'ARGS=({args_s})\n')
             hook_file.write(TEMPLATE_END + after)
     make_executable(hook_path)
 
@@ -139,6 +146,7 @@ def install(
         hooks: bool = False,
         skip_on_missing_config: bool = False,
         git_dir: str | None = None,
+        pro: bool = False,
 ) -> int:
     if git_dir is None and git.has_core_hookpaths_set():
         logger.error(
@@ -153,6 +161,7 @@ def install(
             overwrite=overwrite,
             skip_on_missing_config=skip_on_missing_config,
             git_dir=git_dir,
+            pro=pro,
         )
 
     if hooks:

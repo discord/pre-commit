@@ -281,6 +281,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             'or exit with a failure code.'
         ),
     )
+    install_parser.add_argument('--pro', action='store_true', default=False)
 
     install_hooks_parser = _add_cmd(
         'install-hooks',
@@ -402,6 +403,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 overwrite=args.overwrite,
                 hooks=args.install_hooks,
                 skip_on_missing_config=args.allow_missing_config,
+                pro=args.pro,
             )
         elif args.command == 'init-templatedir':
             return init_templatedir(
