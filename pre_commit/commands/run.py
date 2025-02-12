@@ -259,7 +259,12 @@ def _compute_cols(hooks: Sequence[Hook]) -> int:
     return max(cols, 80)
 
 
-def _all_filenames(args: argparse.Namespace) -> Iterable[str]:
+def _all_filenames(
+    args: argparse.Namespace,
+    manual: bool = False,
+    all_files: bool = False,
+    ignore_unstaged: bool = False,
+) -> Iterable[str]:
     # these hooks do not operate on files
     if args.hook_stage in {
         'post-checkout', 'post-commit', 'post-merge', 'post-rewrite',
@@ -280,6 +285,10 @@ def _all_filenames(args: argparse.Namespace) -> Iterable[str]:
         return git.get_conflicted_files()
     elif os.environ.get('PRE_PUSH_PRO') == '1':
         return git.get_files_against_merge_base()
+    elif manual and all_files:
+        return git.get_files_against_merge_base()
+    elif manual and not ignore_unstaged:
+        return git.get_uncommitted_files()
     else:
         return git.get_staged_files()
 
@@ -297,11 +306,14 @@ def _run_hooks(
         hooks: Sequence[Hook],
         skips: set[str],
         args: argparse.Namespace,
+        manual: bool = False,
+        all_files: bool = False,
+        ignore_unstaged: bool = False,
 ) -> int:
     """Actually run the hooks."""
     cols = _compute_cols(hooks)
     classifier = Classifier.from_config(
-        _all_filenames(args), config['files'], config['exclude'],
+        _all_filenames(args, manual, all_files, ignore_unstaged), config['files'], config['exclude'],
     )
     retval = 0
     prior_diff = _get_diff()
@@ -352,6 +364,9 @@ def run(
         config_file: str,
         store: Store,
         args: argparse.Namespace,
+        manual: bool,
+        ignore_unstaged: bool,
+        all_commits: bool,
         environ: MutableMapping[str, str] = os.environ,
 ) -> int:
     stash = not args.all_files and not args.files
@@ -435,7 +450,7 @@ def run(
 
         # Start the timing trace.
         trace = exit_stack.enter_context(monitor.trace(f'precommit.{args.hook_stage}'))
-        if stash:
+        if stash and ignore_unstaged:
             exit_stack.enter_context(staged_files_only(store.directory))
 
         config = load_config(config_file)
@@ -470,7 +485,7 @@ def run(
             if retval != 0:
                 logger.info(f'Saved commit message to `{editor.COMMIT_MESSAGE_DRAFT_PATH}`.')
         else:
-            retval = _run_hooks(config, hooks, skips, args)
+            retval = _run_hooks(config, hooks, skips, args, manual, all_commits, ignore_unstaged)
         trace.set_success(retval == 0)
         return retval
 

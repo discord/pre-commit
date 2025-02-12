@@ -133,6 +133,16 @@ def get_conflicted_files() -> set[str]:
     return set(merge_conflict_filenames) | set(merge_diff_filenames)
 
 
+def get_uncommitted_files(cwd: str | None = None) -> list[str]:
+    return zsplit(
+        cmd_output(
+            'git', 'diff', '--name-only', '--no-ext-diff', '-z',
+            '--diff-filter=ACMRTUXB',
+            'HEAD',
+            cwd=cwd,
+        )[1],
+    )
+
 def get_files_against_merge_base(cwd: str | None = None) -> list[str]:
     _, base_commit, _ = cmd_output(
         'git', 'merge-base', 'HEAD', 'main'

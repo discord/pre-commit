@@ -316,6 +316,9 @@ def hook_impl(
         hook_type: str,
         hook_dir: str,
         skip_on_missing_config: bool,
+        manual: bool,
+        ignore_unstaged: bool,
+        all_commits: bool,
         args: Sequence[str],
 ) -> int:
     retv, stdin = _run_legacy(hook_type, hook_dir, args)
@@ -324,4 +327,4 @@ def hook_impl(
     if ns is None:
         return retv
     else:
-        return retv | run(config, store, ns)
+        return retv | run(config, store, ns, manual, ignore_unstaged, all_commits)
