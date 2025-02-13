@@ -5,6 +5,7 @@ import contextlib
 import functools
 import logging
 import os
+import platform
 import re
 import subprocess
 import time
@@ -455,11 +456,14 @@ def run(
 
         config = load_config(config_file)
         monitor.set_report_command(config['metrics_command'])
+
+        current_os = platform.system().lower()
         hooks = [
             hook
             for hook in all_hooks(config, store)
             if not args.hook or hook.id == args.hook or hook.alias == args.hook
             if args.hook_stage in hook.stages
+            if current_os not in hook.exclude_os
         ]
 
         if args.hook and not hooks:
@@ -491,4 +495,3 @@ def run(
 
     # https://github.com/python/mypy/issues/7726
     raise AssertionError('unreachable')
-

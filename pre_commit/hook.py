@@ -37,6 +37,7 @@ class Hook(NamedTuple):
     verbose: bool
     commit_changes: bool
     stream_output: bool
+    exclude_os: Sequence[str]
 
     @property
     def install_key(self) -> tuple[Prefix, str, str, tuple[str, ...]]:

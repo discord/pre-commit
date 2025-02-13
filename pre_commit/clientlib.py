@@ -233,6 +233,7 @@ MANIFEST_HOOK_DICT = cfgv.Map(
     cfgv.Optional('verbose', cfgv.check_bool, False),
     cfgv.Optional('commit_changes', cfgv.check_bool, False),
     cfgv.Optional('stream_output', cfgv.check_bool, False),
+    cfgv.Optional('exclude_os', cfgv.check_array(cfgv.check_string), []),
 )
 MANIFEST_SCHEMA = cfgv.Array(MANIFEST_HOOK_DICT)
 
