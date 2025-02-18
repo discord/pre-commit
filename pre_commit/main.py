@@ -354,8 +354,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         '--skip-on-missing-config', action='store_true',
     )
     hook_impl_parser.add_argument('--manual', action='store_true')
-    hook_impl_parser.add_argument('--ignore-unstaged', action='store_true', default=False)
-    hook_impl_parser.add_argument('--all-commits', action='store_true')
+    hook_impl_parser.add_argument('--staged', action='store_true')
+    hook_impl_parser.add_argument('--unstaged', action='store_true')
     hook_impl_parser.add_argument(dest='rest', nargs=argparse.REMAINDER)
 
     # argparse doesn't really provide a way to use a `default` subparser
@@ -398,8 +398,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 hook_dir=args.hook_dir,
                 skip_on_missing_config=args.skip_on_missing_config,
                 manual=args.manual,
-                ignore_unstaged=args.ignore_unstaged,
-                all_commits=args.all_commits,
+                staged=args.staged,
+                unstaged=args.unstaged,
                 args=args.rest[1:],
             )
         elif args.command == 'install':

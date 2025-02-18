@@ -133,7 +133,7 @@ def get_conflicted_files() -> set[str]:
     return set(merge_conflict_filenames) | set(merge_diff_filenames)
 
 
-def get_uncommitted_files(cwd: str | None = None) -> list[str]:
+def get_staged_and_unstaged_files(cwd: str | None = None) -> list[str]:
     return zsplit(
         cmd_output(
             'git', 'diff', '--name-only', '--no-ext-diff', '-z',
