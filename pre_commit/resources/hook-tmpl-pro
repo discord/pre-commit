@@ -12,7 +12,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="${HERE}/../.."
 export CLYDE_ROOT="${REPO_ROOT}/discord_clyde"
 if [[ "$(uname)" = MINGW* ]] || [[ "$(uname)" = MSYS* ]]; then
-    export CLYDE_ENV="${INSTALL_PYTHON/Scripts\/python.exe/}"
+    export CLYDE_ENV="${INSTALL_PYTHON%\\Scripts\\python.exe}"
 else
     export CLYDE_ENV="${INSTALL_PYTHON%/bin/python}"
 fi
