@@ -5,7 +5,8 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from datetime import timezone
-from pre_commit import parse_shebang
+from pathlib import Path
+from pre_commit import git, parse_shebang
 from typing import Dict
 from typing import Generator
 from typing import List
@@ -72,9 +73,12 @@ class Monitor:
 
     def report_metrics(self) -> None:
         if self.report_command:
-            record_json = json.dumps([record.for_json() for record in self.records])
+            root = git.get_root()
+            metrics_file = Path(root) / 'discord_clyde' / '.metrics.json'
+            with open(metrics_file, 'w') as f:
+                json.dump([record.for_json() for record in self.records], f)
             normalized_command = list(parse_shebang.normalize_cmd(tuple(self.report_command)))
-            subprocess.run(normalized_command + [record_json])
+            subprocess.run(normalized_command)
 
 
 monitor = Monitor()
