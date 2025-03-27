@@ -104,7 +104,7 @@ def _install_hook_script(
                 pass
             elif config_process.returncode != 0:
                 # No local editor set; configure integration.
-                subprocess.call(['git', 'config', '--local', 'core.editor', git.get_editor_script_path()])
+                subprocess.call(['git', 'config', '--local', 'core.editor', target_editor])
             else:
                 # Local editor differently configured; do not overwrite user config.
                 logger.error(

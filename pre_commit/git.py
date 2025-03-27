@@ -247,7 +247,8 @@ def update_changes_concurrent(repo: str = '.') -> None:
 def get_editor_script_path(repo: str = '.') -> str:
     # In spite of being in the hooks directory, the editor script isn't a real hook as far as git is
     # concerned. We're putting it there as a convenient way to keep things in one place.
-    return os.path.join(repo, get_git_dir(repo), 'hooks', 'editor')
+    import posixpath
+    return posixpath.join(repo, get_git_dir(repo), 'hooks', 'editor')
 
 
 def update_changes(repo: str = '.') -> None:
