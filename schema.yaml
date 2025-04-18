@@ -1,0 +1,229 @@
+# Schema for .pre-commit-config.yaml
+type: object
+properties:
+  minimum_pre_commit_version:
+    type: string
+    description: Minimum pre-commit version required for this configuration.
+    default: '0'
+  repos:
+    type: array
+    description: List of repository definitions containing hooks.
+    items:
+      type: object
+      properties:
+        repo:
+          type: string
+          description: The repository URL or path. Use 'local' for hooks defined directly in this file, or 'meta' for pre-commit's built-in hooks.
+        rev:
+          type: string
+          description: The revision (tag, branch, SHA) of the repository to use. Not applicable for 'local' or 'meta' repos.
+        hooks:
+          type: array
+          description: List of hooks from this repository to use or configure.
+          items:
+            # --- Start Hook Schema ---
+            type: object
+            properties:
+              # --- Properties for all repo types ---
+              id:
+                type: string
+                description: Unique identifier for the hook within its repository.
+              alias: # Optional override
+                type: string
+                description: An alias for the hook id.
+              name: # Optional override for remote repos, required for local
+                type: string
+                description: The name of the hook, displayed during execution.
+              language_version: # Optional override
+                type: string
+                description: Specifies the version of the language to use.
+              files: # Optional override
+                type: string
+                description: Regex pattern for files to include.
+                format: regex
+              exclude: # Optional override
+                type: string
+                description: Regex pattern for files to exclude.
+                format: regex
+              types: # Optional override
+                type: array
+                items:
+                  type: string
+                  description: List of file types (tags from identify) to include.
+              types_or: # Optional override
+                type: array
+                items:
+                  type: string
+                  description: List of file types (tags from identify), runs if any type matches.
+              exclude_types: # Optional override
+                type: array
+                items:
+                  type: string
+                  description: List of file types (tags from identify) to exclude.
+              additional_dependencies: # Optional override
+                type: array
+                items:
+                  type: string
+                description: Additional dependencies for the hook's environment.
+              args: # Optional override
+                type: array
+                items:
+                  type: string
+                description: List of arguments to pass to the hook entry.
+              always_run: # Optional override
+                type: boolean
+                description: If true, the hook runs even if there are no matching files.
+              fail_fast: # Optional override
+                type: boolean
+                description: If true, skip remaining hooks on failure.
+              pass_filenames: # Optional override
+                type: boolean
+                description: If true, pass filenames to the hook. If false, pass no arguments.
+              description: # Optional override
+                type: string
+                description: A description of the hook.
+              log_file: # Optional override
+                type: string
+                description: If set, redirects stdout/stderr to the specified file.
+              require_serial: # Optional override
+                type: boolean
+                description: If true, this hook will run in serial.
+              stages: # Optional override
+                type: array
+                items:
+                  type: string
+                  enum: # Populated from STAGES
+                    - commit-msg
+                    - post-checkout
+                    - post-commit
+                    - post-merge
+                    - post-rewrite
+                    - pre-commit
+                    - pre-merge-commit
+                    - pre-push
+                    - pre-rebase
+                    - prepare-commit-msg
+                    - editor
+                    - manual
+                description: List of stages where the hook should run.
+              verbose: # Optional override
+                type: boolean
+                description: If true, forces the hook to run verbosely.
+              commit_changes: # Optional override
+                type: boolean
+                description: If true, allows the hook to commit changes using git.
+              stream_output: # Optional override
+                type: boolean
+                description: If true, streams output instead of buffering.
+              exclude_os: # Optional override
+                type: array
+                items:
+                  type: string
+                description: List of OS names (e.g., 'windows') on which the hook should *not* run.
+
+              # --- Properties required/allowed ONLY for local hooks ---
+              entry: # Required for local
+                type: string
+                description: The command to execute (required for local hooks).
+              language: # Required for local
+                type: string
+                description: The language/environment the hook runs in (required for local hooks).
+                enum: # Populated from `language_names`
+                  - python
+                  - ruby
+                  - node
+                  # ... other languages ...
+                  - system
+                  - docker
+                  - docker_image
+                  - pygrep
+                  - script
+              minimum_pre_commit_version: # Allowed for local
+                type: string
+                description: Minimum pre-commit version required for this hook.
+
+            required:
+             - id
+            # Note: 'name', 'entry', 'language' become required specifically for 'repo: local' hooks,
+            # which is tricky to express perfectly in standard JSON/YAML schema conditional logic,
+            # but this structure captures the allowed fields.
+
+            # --- End Hook Schema ---
+      required:
+        - repo
+        - hooks
+  default_install_hook_types:
+    type: array
+    description: Default git hook types to install for.
+    items:
+      type: string
+      enum: # Populated from HOOK_TYPES
+        - commit-msg
+        - post-checkout
+        - post-commit
+        - post-merge
+        - post-rewrite
+        - pre-commit
+        - pre-merge-commit
+        - pre-push
+        - pre-rebase
+        - prepare-commit-msg
+        - editor
+    default: ['pre-commit']
+  default_language_version:
+    type: object
+    description: Default language versions to use for hooks if not specified.
+    additionalProperties:
+      type: string
+    default: {}
+  default_stages:
+    type: array
+    description: Default stages hooks run on if not specified.
+    items:
+      type: string
+      enum: # Populated from STAGES (same as hook stages)
+        - commit-msg
+        - post-checkout
+        - post-commit
+        - post-merge
+        - post-rewrite
+        - pre-commit
+        - pre-merge-commit
+        - pre-push
+        - pre-rebase
+        - prepare-commit-msg
+        - editor
+        - manual
+    default: # STAGES constant includes all valid stages
+      - commit-msg
+      - post-checkout
+      # ... all other stages ...
+      - manual
+  files:
+    type: string
+    description: Global regex pattern for files to include.
+    format: regex
+    default: ''
+  exclude:
+    type: string
+    description: Global regex pattern for files to exclude.
+    format: regex
+    default: '^$'
+  fail_fast:
+    type: boolean
+    description: Global flag to skip remaining hooks on failure.
+    default: false
+  metrics_command:
+    type: string
+    description: A command to run for gathering metrics.
+    nullable: true
+    default: null
+  ci:
+    type: object
+    description: Configuration specific to pre-commit.ci.
+    additionalProperties: true # Allow any properties within ci:
+
+required:
+  - repos
+
+additionalProperties: false # Disallow keys not defined in this schema at the root level
