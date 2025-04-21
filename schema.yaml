@@ -119,6 +119,10 @@ properties:
                 type: array
                 items:
                   type: string
+                  enum:
+                    - windows
+                    - darwin
+                    - linux
                 description: List of OS names (e.g., 'windows') on which the hook should *not* run.
 
               # --- Properties required/allowed ONLY for local hooks ---
