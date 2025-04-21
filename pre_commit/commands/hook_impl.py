@@ -316,9 +316,9 @@ def hook_impl(
         hook_type: str,
         hook_dir: str,
         skip_on_missing_config: bool,
-        manual: bool,
-        staged: bool,
-        unstaged: bool,
+        manual: bool = False,
+        staged: bool = False,
+        unstaged: bool = False,
         args: Sequence[str],
 ) -> int:
     retv, stdin = _run_legacy(hook_type, hook_dir, args)
