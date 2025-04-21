@@ -365,9 +365,9 @@ def run(
         config_file: str,
         store: Store,
         args: argparse.Namespace,
-        manual: bool,
-        staged: bool,
-        unstaged: bool,
+        manual: bool = False,
+        staged: bool = False,
+        unstaged: bool = False,
         environ: MutableMapping[str, str] = os.environ,
 ) -> int:
     stash = not args.all_files and not args.files
