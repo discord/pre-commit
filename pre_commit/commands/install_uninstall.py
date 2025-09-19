@@ -124,8 +124,9 @@ def _install_hook_script(
             if sys.platform == 'win32':  # pragma: win32 cover
                 hook_file.write('#!/bin/sh\n')
 
+            exe = os.environ.get("PYTHON_EXECUTABLE_OVERRIDE", sys.executable)
             hook_file.write(before + TEMPLATE_START)
-            hook_file.write(f'INSTALL_PYTHON={shlex.quote(sys.executable)}\n')
+            hook_file.write(f'INSTALL_PYTHON={shlex.quote(exe)}\n')
             args_s = shlex.join(args)
             if pro:
                 hook_file.write(f'COMMIT_ARGS=({args_s})\n'.replace(hook_type, 'pre-commit'))
